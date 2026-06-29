@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -354,14 +355,15 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print("error: login did not complete.", file=sys.stderr)
         return 1
 
-    print(f"{'Resuming' if resuming else 'Archiving'} your Slack data ...  "
-          "(Slack rate-limits this; it is resumable — safe to stop and re-run)\n")
-    rc = subprocess.run(capture).returncode
+    _print_capture_banner(resuming)
+    rc, elapsed = _run_capture(capture, "Resume" if resuming else "Archive")
     if rc != 0:
-        print(f"\nslackdump exited with code {rc}. Re-run backup to resume where it stopped.", file=sys.stderr)
+        print(f"\nslackdump exited with code {rc} after {_fmt_dur(elapsed)}. "
+              "Re-run backup to resume where it stopped.", file=sys.stderr)
         return rc
+    print(f"\n✓ Capture finished in {_fmt_dur(elapsed)}.")
 
-    print("\nConverting the archive into a searchable export ...")
+    print("Converting the archive into a searchable export ...")
     if export_dir.exists():
         shutil.rmtree(export_dir, ignore_errors=True)
     rc = subprocess.run(convert).returncode
@@ -583,6 +585,53 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 def _quote(s: str) -> str:
     return f'"{s}"' if " " in s else s
+
+
+def _fmt_dur(seconds: float) -> str:
+    s = int(seconds)
+    h, s = divmod(s, 3600)
+    m, s = divmod(s, 60)
+    if h:
+        return f"{h}h {m}m"
+    if m:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
+
+def _print_capture_banner(resuming: bool) -> None:
+    bar = "-" * 68
+    print("\n" + bar)
+    print(("Resuming" if resuming else "Capturing") + " your Slack history into the archive.")
+    print("  - Progress = the message / 'stream result' lines slackdump prints below.")
+    print("  - Pauses such as 'rate limited, sleeping' are NORMAL: Slack throttles thread")
+    print("    history; slackdump waits the requested seconds and continues on its own.")
+    print("  - No exact ETA (Slack sets the pace). Rough guide: small histories take a few")
+    print("    minutes; large multi-year ones can take 30 min to several hours the FIRST time.")
+    print("  - RESUMABLE: press Ctrl+C anytime, then re-run backup to continue where it stopped.")
+    print(bar + "\n")
+
+
+def _run_capture(cmd: list[str], what: str) -> tuple[int, float]:
+    """Run the (long) slackdump capture with native output, plus a periodic elapsed-time
+    heartbeat so it's obvious the run is still alive during rate-limit pauses."""
+    start = time.time()
+    stop = threading.Event()
+
+    def _heartbeat() -> None:
+        # first tick after 60s, then every 60s, until the process finishes
+        while not stop.wait(60):
+            print(f"\n   ⏳ {what} still running — {_fmt_dur(time.time() - start)} elapsed. "
+                  "Throttle pauses are normal; Ctrl+C is safe (it resumes).\n", flush=True)
+
+    beat = threading.Thread(target=_heartbeat, daemon=True)
+    beat.start()
+    try:
+        rc = subprocess.run(cmd).returncode
+    except KeyboardInterrupt:
+        rc = 130
+    finally:
+        stop.set()
+    return rc, time.time() - start
 
 
 def build_parser() -> argparse.ArgumentParser:
