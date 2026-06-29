@@ -156,20 +156,24 @@ Open the UI and type in the search box. You can:
 Three decoupled stages:
 
 ```
- slackdump  ──►  data/export/   ──►  index (Python)  ──►  data/search.db  ──►  serve (Flask)
- (login +        Slack-standard      parse + render        SQLite + FTS5         localhost
-  export)        JSON + files        to a clean DB         full-text search      web UI
+ slackdump archive ─► data/archive/ ─► convert ─► data/export/ ─► index ─► data/search.db ─► serve
+ (login + resumable    SQLite + files   (files-free  text-only      SQLite     full-text       Flask
+  capture)             (one copy)        export)      JSON           FTS5        search          localhost
 ```
 
-1. **Capture** — [`slackdump`](https://github.com/rusq/slackdump) downloads your conversations and files using your own login.
-2. **Index** — a small Python step parses the export, resolves @mentions and links to readable text, renders display HTML, and builds a SQLite **FTS5** full-text index.
+1. **Capture** — [`slackdump`](https://github.com/rusq/slackdump) saves your conversations into a **resumable SQLite archive** (`data/archive/`) using your own login. Interrupt it anytime — re-running **resumes** where it left off, and later runs are **incremental** (only new messages).
+2. **Convert + index** — the archive is converted to a *files-free* export (so attachments aren't stored twice), then a small Python step parses it, resolves @mentions/links, renders HTML, and builds a SQLite **FTS5** index. Attachments are read straight from the archive.
 3. **Serve** — a tiny local Flask app gives you the search + browse UI. No external requests are ever made.
 
 ---
 
 ## Updating later
 
-Re-run `backup` to fetch new messages, then `search` (or `search.ps1 -Reindex` / `./search.sh --reindex`) to rebuild the index. `slackdump` exports are resumable, so interrupted backups can be re-run safely.
+Just run `backup` again — it **resumes/append-updates** your existing archive (only fetching new messages, and skipping threads it already has in full, which keeps it fast and avoids most rate-limiting). Then re-index: `search.ps1 -Reindex` / `./search.sh --reindex`.
+
+- **Stopped halfway?** Safe — re-run `backup` and it continues from where it stopped.
+- **Want to change your channel selection?** Run `backup -Fresh` / `--fresh` to start a new archive.
+- **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only — drops the size dramatically.
 
 ---
 
@@ -192,7 +196,7 @@ Re-run `backup` to fetch new messages, then `search` (or `search.ps1 -Reindex` /
 | **Enterprise Grid** | Always pass `-Enterprise` (Windows) / `--enterprise` (macOS/Linux). |
 | **`sqlite3 was built without FTS5`** | Use a python.org build of Python (its bundled SQLite includes FTS5), then re-run setup. |
 | **Port 8731 in use** | `.\search.ps1 -Port 9000` or `./search.sh --port 9000`. |
-| **Huge workspace / slow** | Normal — Slack rate-limits. The export is resumable; just re-run `backup`. |
+| **Huge workspace / slow / rate-limited** | Normal — Slack throttles thread fetches. The archive is **resumable**: stop and re-run `backup` to continue, and repeat runs are incremental. Use `-NoFiles` / `--no-files` to skip attachments. |
 | **Windows blocks slackdump.exe** | Setup already unblocks it; if prompted, choose *More info → Run anyway*. |
 
 ---
@@ -207,12 +211,12 @@ slack-archive/
 ├── backup.ps1 / backup.sh      # export your Slack history
 ├── search.ps1 / search.sh      # build index + open the search UI
 ├── channels.example.txt        # template; your real channels.txt is git-ignored
-├── requirements.txt            # Python deps (just Flask)
+├── requirements.txt            # Python deps (Flask + questionary)
 ├── slackarchive/               # the Python package
 │   ├── cli.py  db.py  ingest.py  server.py  slackfmt.py
 │   ├── templates/  static/
 ├── bin/                        # slackdump binary (downloaded; git-ignored)
-└── data/                       # your export + search.db (git-ignored)
+└── data/                       # archive/ + export/ + search.db (git-ignored)
 ```
 
 ---

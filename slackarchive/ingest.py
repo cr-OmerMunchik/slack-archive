@@ -31,7 +31,8 @@ from typing import Any, Iterable
 from . import db as dbmod
 from .slackfmt import render
 
-_FILE_ID_RE = re.compile(r"^(F[A-Z0-9]+)-")
+_FILE_ID_RE = re.compile(r"^(F[A-Z0-9]+)-")   # standard layout: attachments/F<id>-name
+_FILE_DIR_RE = re.compile(r"^(F[A-Z0-9]+)$")  # mattermost layout: __uploads/F<id>/name
 
 
 def _load_json(path: Path) -> Any:
@@ -92,19 +93,51 @@ def index_export(export_dir: str | Path, db_path: str | Path, *, verbose: bool =
     return index_paths([export_dir], db_path, verbose=verbose)
 
 
-def index_paths(export_dirs: Iterable[str | Path], db_path: str | Path, *, verbose: bool = True) -> dict:
+def _build_file_index(roots: list[Path], files_root: Path) -> dict[str, str]:
+    """Map slackdump file ID -> path relative to files_root. Handles both export
+    layouts: 'attachments/F<id>-name' (standard) and '__uploads/F<id>/name' (mattermost,
+    used by the resumable archive)."""
+    idx: dict[str, str] = {}
+    for root in roots:
+        if not root.exists():
+            continue
+        for p in root.rglob("*"):
+            if not p.is_file():
+                continue
+            m = _FILE_ID_RE.match(p.name)
+            fid = m.group(1) if m else None
+            if not fid:
+                pm = _FILE_DIR_RE.match(p.parent.name)
+                fid = pm.group(1) if pm else None
+            if fid:
+                idx.setdefault(fid, os.path.relpath(p.resolve(), files_root).replace("\\", "/"))
+    return idx
+
+
+def index_paths(export_dirs: Iterable[str | Path], db_path: str | Path, *,
+                files_root: str | Path | None = None,
+                attachment_roots: Iterable[str | Path] | None = None,
+                verbose: bool = True) -> dict:
+    """Index one or more export directories. Attachments are resolved from the export
+    dirs plus any ``attachment_roots`` (e.g. the resumable archive's ``__uploads``), and
+    served relative to ``files_root`` (defaults to the common parent of everything)."""
     roots = [Path(d).resolve() for d in export_dirs]
     missing = [str(r) for r in roots if not r.exists()]
     if missing:
         raise FileNotFoundError("export directory not found: " + ", ".join(missing))
     if not roots:
         raise ValueError("no export directories given")
+    att_roots = [Path(a).resolve() for a in (attachment_roots or [])]
+    all_roots = roots + [a for a in att_roots if a.exists()]
 
-    # Common parent for serving attachments with one root.
-    if len(roots) == 1:
-        files_root = roots[0]
+    if files_root:
+        files_root = Path(files_root).resolve()
+    elif len(all_roots) == 1:
+        files_root = all_roots[0]
     else:
-        files_root = Path(os.path.commonpath([str(r) for r in roots]))
+        files_root = Path(os.path.commonpath([str(r) for r in all_roots]))
+
+    file_index = _build_file_index(all_roots, files_root)
 
     conn = dbmod.connect(db_path)
     if not dbmod.fts5_available(conn):
@@ -118,7 +151,7 @@ def index_paths(export_dirs: Iterable[str | Path], db_path: str | Path, *, verbo
     for root in roots:
         if verbose:
             print(f"Indexing {root}", file=sys.stderr)
-        counts = _ingest_one(conn, root, files_root, verbose=verbose)
+        counts = _ingest_one(conn, root, files_root, file_index, verbose=verbose)
         for k in totals:
             totals[k] += counts[k]
 
@@ -140,7 +173,7 @@ def index_paths(export_dirs: Iterable[str | Path], db_path: str | Path, *, verbo
     return totals
 
 
-def _ingest_one(conn, export: Path, files_root: Path, *, verbose: bool) -> dict:
+def _ingest_one(conn, export: Path, files_root: Path, file_index: dict[str, str], *, verbose: bool) -> dict:
     # ---- users ----
     users_raw = _load_json(export / "users.json")
     user_rows = [_user_display(u) for u in users_raw if isinstance(u, dict)]
@@ -213,16 +246,7 @@ def _ingest_one(conn, export: Path, files_root: Path, *, verbose: bool) -> dict:
             if isinstance(obj, dict):
                 add_conv(obj, default)
 
-    # ---- attachment index: fileID -> path relative to files_root ----
-    file_index: dict[str, str] = {}
-    for p in export.rglob("*"):
-        if p.is_file():
-            m = _FILE_ID_RE.match(p.name)
-            if m:
-                rel = os.path.relpath(p.resolve(), files_root)
-                file_index.setdefault(m.group(1), rel.replace("\\", "/"))
-
-    # ---- messages ----
+    # ---- messages ----  (file_index is shared/prebuilt and covers all roots)
     counts = {"messages": 0, "files": 0, "conversations": 0, "users": len(user_rows)}
     conv_dirs = [d for d in export.iterdir() if d.is_dir() and d.name != "attachments"]
     for cdir in sorted(conv_dirs):

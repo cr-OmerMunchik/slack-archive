@@ -5,8 +5,10 @@ in your browser, fully offline. `README.md` is the full human guide; this file i
 quick operational map so an AI assistant can help a teammate set it up.
 
 ## What it does
-`slackdump` (a downloaded binary) exports your Slack → a small Python step indexes it
-into **SQLite FTS5** → a local **Flask** app serves search at `http://localhost:8731`.
+`slackdump` (a downloaded binary) saves your Slack into a **resumable SQLite archive**
+(`data/archive/`) → that's converted to a *files-free* export → a small Python step indexes
+it into **SQLite FTS5** → a local **Flask** app serves search at `http://localhost:8731`.
+Backups are **resumable + incremental**; attachments are stored once (in the archive).
 No data ever leaves the machine.
 
 ## Helping a user — the 3 steps
@@ -26,9 +28,12 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
 
 ## The CLI under the scripts
 `python -m slackarchive <command>`:
-- `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--out DIR]` — export via slackdump
+- `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--no-files] [--fresh]` —
+  capture via slackdump. Creates/updates `data/archive` (resume if it exists; `--fresh` rebuilds),
+  then converts to `data/export`. `--no-files` = text only (much smaller). The interactive `--pick`
+  flow also asks whether to include attachments (default yes).
 - `pick-channels` — write an editable `channels.txt`; `find-channels <kw>` — search public channels by name
-- `index` — build `data/search.db` from the export(s) under `data/`
+- `index` — build `data/search.db` from `data/export`; resolves attachments from `data/archive`
 - `serve` — Flask UI on `127.0.0.1:8731`
 
 ## Rules & gotchas (read before changing things)
@@ -39,6 +44,11 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
   searches by name and ticks them; picks are remembered in `data/.picked_public.json`.
 - **Default workspace** is resolved from `SLACK_ARCHIVE_WORKSPACE` env → `workspace.txt` →
   built-in fallback (`cybereason`), so the login won't prompt for it. Override with `--workspace`.
+- **Archive is the master store.** `backup` runs `slackdump archive` (or `resume`) into
+  `data/archive` (SQLite + `__uploads`), then `convert -f export -files=false` into `data/export`.
+  Files are deliberately NOT copied into the export (avoids double-storing GBs); the indexer reads
+  attachments straight from `data/archive/__uploads` (handled in `ingest._build_file_index`, which
+  understands both `F<id>-name` and `__uploads/F<id>/name` layouts).
 - **slackdump login is interactive** (a browser window) and must be run by the user.
   `slackdump` is pinned in the setup scripts (currently v4.4.1).
 - **Code layout:** `slackarchive/{cli,db,ingest,server,slackfmt}.py` + `templates/` + `static/`.

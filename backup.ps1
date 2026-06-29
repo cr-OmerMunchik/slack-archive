@@ -1,10 +1,13 @@
 <#
   Back up your Slack history (Windows).
   Examples:
-    .\backup.ps1                                  # member-only export (everything you're in)
-    .\backup.ps1 -Enterprise -Workspace cybereason
-    .\backup.ps1 -Enterprise -Channels C0123ABCD  # specific public channel(s) + channels.txt
-    .\backup.ps1 -DryRun                           # show the slackdump command, don't run
+    .\backup.ps1 -Enterprise -Pick                # interactively choose channels (asks about attachments)
+    .\backup.ps1 -Enterprise                      # everything you're in
+    .\backup.ps1 -Enterprise -NoFiles             # text only - skip attachments (much smaller)
+    .\backup.ps1 -Enterprise -Fresh               # start a new archive instead of resuming
+    .\backup.ps1 -DryRun                          # show the commands, don't run
+
+  Backups are resumable + incremental: re-running continues an existing archive in data\archive.
 #>
 param(
   [switch]$Enterprise,
@@ -12,6 +15,8 @@ param(
   [string]$Workspace,
   [string[]]$Channels,
   [switch]$NoChannelsFile,
+  [switch]$NoFiles,
+  [switch]$Fresh,
   [string]$Out,
   [switch]$Yes,
   [switch]$DryRun
@@ -27,6 +32,8 @@ if ($Pick)       { $cargs += "--pick" }
 if ($Workspace)  { $cargs += @("--workspace", $Workspace) }
 if ($Channels)       { $cargs += @("--channels") + $Channels }
 if ($NoChannelsFile) { $cargs += "--no-channels-file" }
+if ($NoFiles)        { $cargs += "--no-files" }
+if ($Fresh)          { $cargs += "--fresh" }
 if ($Out)            { $cargs += @("--out", $Out) }
 if ($Yes)            { $cargs += "-y" }
 if ($DryRun)     { $cargs += "--dry-run" }

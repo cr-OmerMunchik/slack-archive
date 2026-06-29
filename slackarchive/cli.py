@@ -208,6 +208,7 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
         else:
             print("\n(no channels selected)")
 
+    include_files = True
     try:
         print(f"\nYou belong to {len(your_named)} channel(s) — all pre-selected. "
               f"{len(directory):,} more public channels are available.")
@@ -248,6 +249,15 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
                         selected.pop(i, None)
 
             # ---- review & confirm phase ----
+            inc = questionary.confirm(
+                "Also back up file attachments (images, files)? They can be large.",
+                default=include_files,
+            ).ask()
+            if inc is None:
+                print("Cancelled.")
+                return None
+            include_files = bool(inc)
+
             print("\n=== This backup will include ===")
             print(f"  - all {len(auto_ids)} of your DMs and group chats")
             if selected:
@@ -256,6 +266,7 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
                     print(f"      #{n}")
             else:
                 print("  - no channels")
+            print(f"  - attachments: {'yes' if include_files else 'no (text only)'}")
             action = questionary.select(
                 "Proceed?",
                 choices=["Yes - back up this selection", "No - keep choosing", "Cancel"],
@@ -271,7 +282,7 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
         return None
 
     _save_picked({i: n for i, n in selected.items() if i not in your_named_ids})
-    return auto_ids + list(selected.keys())
+    return auto_ids + list(selected.keys()), include_files
 
 
 # --------------------------------------------------------------------------- #
@@ -284,35 +295,57 @@ def cmd_backup(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 2
 
-    # Interactive picker needs to query Slack, so make sure we're logged in first.
-    if args.pick:
-        if not _ensure_login(sd, args.workspace, args.skip_login):
-            print("error: login did not complete.", file=sys.stderr)
-            return 1
-        channels = _interactive_select(sd, args.enterprise)
-        if channels is None:
-            print("Selection cancelled; nothing backed up.", file=sys.stderr)
-            return 1
-    else:
-        channels = list(args.channels or [])
-        if not args.no_channels_file:
-            channels += _read_channel_tokens(Path(args.channels_file))
+    archive_dir = DATA_DIR / "archive"          # resumable SQLite archive + attachments
+    export_dir = Path(args.out)                 # files-free export the indexer reads
+    resuming = (archive_dir / "slackdump.sqlite").exists() and not args.fresh
 
-    out = Path(args.out)
-    cmd = [sd, "export", "-type", "standard", "-files", "-o", str(out)]
+    include_files = not args.no_files
+    channels: list[str] = []
+
+    if resuming:
+        print(f"Found an existing archive at {archive_dir} — resuming it (incremental update).")
+        print("The channel set comes from the archive; use --fresh to choose a new set.\n")
+    else:
+        if args.fresh and archive_dir.exists():
+            shutil.rmtree(archive_dir, ignore_errors=True)
+        if args.pick:
+            if not _ensure_login(sd, args.workspace, args.skip_login):
+                print("error: login did not complete.", file=sys.stderr)
+                return 1
+            sel = _interactive_select(sd, args.enterprise)
+            if not sel:
+                print("Selection cancelled; nothing backed up.", file=sys.stderr)
+                return 1
+            channels, include_files = sel
+        else:
+            channels = list(args.channels or [])
+            if not args.no_channels_file:
+                channels += _read_channel_tokens(Path(args.channels_file))
+
+    files_flag = "-files" if include_files else "-files=false"
+    common: list[str] = []
     if args.enterprise:
-        cmd.append("-enterprise")
+        common.append("-enterprise")
     if args.workspace:
-        cmd += ["-workspace", args.workspace]
-    if channels:
-        cmd += channels      # explicit conversations (IDs / URLs / ^excludes)
-    else:
-        cmd.append("-member-only")
-    if args.yes:
-        cmd.append("-y")
+        common += ["-workspace", args.workspace]
 
-    print("\nslackdump command:")
-    print("  " + " ".join(_quote(c) for c in cmd) + "\n")
+    if resuming:
+        # resumable + incremental; skip threads we already have in full to cut rate-limit hits
+        capture = [sd, "resume", str(archive_dir), "-threads", "-skip-complete-threads", files_flag] + common
+    else:
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        capture = [sd, "archive", "-o", str(archive_dir), files_flag] + common
+        capture += channels if channels else ["-member-only"]
+    if args.yes:
+        capture.append("-y")
+
+    # Convert the archive to an export WITHOUT copying files (-files=false): attachments
+    # live only in the archive, so we never store gigabytes twice. The indexer reads the
+    # text from here and resolves attachments straight from the archive.
+    convert = [sd, "convert", "-f", "export", "-files=false", "-o", str(export_dir), str(archive_dir)]
+
+    print("\nStep 1/2 - capture (slackdump):\n  " + " ".join(_quote(c) for c in capture))
+    print("Step 2/2 - convert to a searchable export:\n  " + " ".join(_quote(c) for c in convert) + "\n")
     if args.dry_run:
         print("(dry run - not executed)")
         return 0
@@ -321,12 +354,22 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print("error: login did not complete.", file=sys.stderr)
         return 1
 
-    out.mkdir(parents=True, exist_ok=True)
-    print(f"\nExporting to {out} ...  (this can take a while; it is resumable)\n")
-    rc = subprocess.run(cmd).returncode
-    if rc == 0:
-        print("\nExport finished. Next:\n  python -m slackarchive index\n  python -m slackarchive serve")
-    return rc
+    print(f"{'Resuming' if resuming else 'Archiving'} your Slack data ...  "
+          "(Slack rate-limits this; it is resumable — safe to stop and re-run)\n")
+    rc = subprocess.run(capture).returncode
+    if rc != 0:
+        print(f"\nslackdump exited with code {rc}. Re-run backup to resume where it stopped.", file=sys.stderr)
+        return rc
+
+    print("\nConverting the archive into a searchable export ...")
+    if export_dir.exists():
+        shutil.rmtree(export_dir, ignore_errors=True)
+    rc = subprocess.run(convert).returncode
+    if rc != 0:
+        print(f"\nconvert failed (code {rc}).", file=sys.stderr)
+        return rc
+    print("\nDone. Next:\n  python -m slackarchive index\n  python -m slackarchive serve")
+    return 0
 
 
 def _conv_label(c: dict) -> tuple[str, str]:
@@ -500,8 +543,14 @@ def cmd_index(args: argparse.Namespace) -> int:
         print("error: export directory not found: " + ", ".join(missing), file=sys.stderr)
         return 2
 
+    # Attachments may live only in the resumable archive (we convert files-free to save
+    # disk), so point the indexer at it too for attachment resolution.
+    archive_dir = DATA_DIR / "archive"
+    attachment_roots = [str(archive_dir)] if archive_dir.exists() else []
+
     print("Indexing:\n  " + "\n  ".join(str(d) for d in dirs) + f"\n-> {args.db}\n")
-    result = ingest.index_paths([str(d) for d in dirs], args.db, verbose=not args.quiet)
+    result = ingest.index_paths([str(d) for d in dirs], args.db,
+                                attachment_roots=attachment_roots, verbose=not args.quiet)
     print(f"\nDone: {result['messages']} messages, {result['files']} files, "
           f"{result['conversations']} conversations, {result['users']} users.")
     print(f"Database: {args.db}")
@@ -552,6 +601,8 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--channels", nargs="*", help="specific channel IDs/URLs to export (instead of member-only)")
     pb.add_argument("--channels-file", default=str(CHANNELS_FILE), help="file listing extra channels (default: channels.txt)")
     pb.add_argument("--no-channels-file", action="store_true", help="ignore channels.txt")
+    pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
+    pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
     pb.add_argument("--enterprise", action="store_true", help="required for Slack Enterprise Grid workspaces")
     pb.add_argument("--skip-login", action="store_true", help="don't auto-run login even if not authenticated")
     pb.add_argument("-y", "--yes", action="store_true", help="pass -y to slackdump (answer yes to prompts)")
