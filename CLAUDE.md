@@ -37,6 +37,8 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
 - **Enterprise Grid:** pass `--enterprise` / `-Enterprise`. Slack does **not** reliably report
   which *public* channels a user belongs to, so the picker can't auto-include them — the user
   searches by name and ticks them; picks are remembered in `data/.picked_public.json`.
+- **Default workspace** is resolved from `SLACK_ARCHIVE_WORKSPACE` env → `workspace.txt` →
+  built-in fallback (`cybereason`), so the login won't prompt for it. Override with `--workspace`.
 - **slackdump login is interactive** (a browser window) and must be run by the user.
   `slackdump` is pinned in the setup scripts (currently v4.4.1).
 - **Code layout:** `slackarchive/{cli,db,ingest,server,slackfmt}.py` + `templates/` + `static/`.

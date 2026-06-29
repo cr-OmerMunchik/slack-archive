@@ -36,8 +36,8 @@ powershell -ExecutionPolicy Bypass -File .\setup.ps1
 .\pick.ps1 -Enterprise                        # then edit channels.txt; see "Choosing what to back up"
 
 # 3. Back up your Slack history (opens a browser for you to log in)
-.\backup.ps1                                  # standard workspaces
-.\backup.ps1 -Enterprise -Workspace yourname  # Slack Enterprise Grid (see note below)
+.\backup.ps1 -Enterprise                      # Slack Enterprise Grid
+.\backup.ps1                                   # non-Grid workspaces
 
 # 4. Build the search index and open the search UI in your browser
 .\search.ps1
@@ -50,13 +50,13 @@ chmod +x setup.sh backup.sh search.sh
 
 ./setup.sh                                     # one-time setup
 ./pick.sh --enterprise                         # (optional) choose channels, then edit channels.txt
-./backup.sh                                    # or: ./backup.sh --enterprise --workspace yourname
+./backup.sh --enterprise                       # drop --enterprise if you're not on Slack Enterprise Grid
 ./search.sh                                    # builds the index and opens the browser
 ```
 
 That's it. The search UI runs at **http://localhost:8731** and only listens on your own machine.
 
-> **Logging in:** the backup step opens a browser window. Pick **Interactive** when asked for a login method (works with SSO/Okta/password). If your company uses *Sign in with Google*, choose **QR Code** and scan it with the Slack app on your phone. Your workspace name is the part before `.slack.com` — to find it, right-click any message in Slack → *Copy link*.
+> **Logging in:** the backup step opens a browser window. Pick **Interactive** when asked for a login method (works with SSO/Okta/password). If your company uses *Sign in with Google*, choose **QR Code** and scan it with the Slack app on your phone. Your workspace name is the part before `.slack.com` — to find it, right-click any message in Slack → *Copy link*. The backup uses a **default workspace**, so you usually don't need to enter it; override with `-Workspace <name>` / `--workspace <name>`, a local `workspace.txt`, or the `SLACK_ARCHIVE_WORKSPACE` env var.
 
 ---
 

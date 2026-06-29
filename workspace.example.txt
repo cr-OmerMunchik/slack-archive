@@ -1,0 +1,10 @@
+# Optional: set a default Slack workspace so `backup` never asks for it.
+#
+# The workspace is the part of your Slack URL before ".slack.com"
+# (e.g. https://acme.slack.com  ->  acme).
+#
+# To use it: copy this file to "workspace.txt" (which is git-ignored) and put
+# your workspace on the first line. Or set the SLACK_ARCHIVE_WORKSPACE env var.
+# Or just pass it each time:  backup.ps1 -Workspace acme  /  ./backup.sh --workspace acme
+#
+# acme

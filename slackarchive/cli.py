@@ -16,6 +16,25 @@ DATA_DIR = REPO_ROOT / "data"
 DEFAULT_EXPORT = DATA_DIR / "export"
 DEFAULT_DB = DATA_DIR / "search.db"
 CHANNELS_FILE = REPO_ROOT / "channels.txt"
+WORKSPACE_FILE = REPO_ROOT / "workspace.txt"
+
+
+def default_workspace() -> str | None:
+    """Default Slack workspace for login, resolved in order:
+    1. the SLACK_ARCHIVE_WORKSPACE environment variable,
+    2. a local ``workspace.txt`` file (first non-comment line),
+    3. a built-in fallback ('cybereason').
+    Override any time with ``--workspace``. Non-Cybereason users can set the env
+    var, drop a workspace.txt, or change the fallback below."""
+    env = os.environ.get("SLACK_ARCHIVE_WORKSPACE")
+    if env and env.strip():
+        return env.strip()
+    if WORKSPACE_FILE.exists():
+        for line in WORKSPACE_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line:
+                return line
+    return "cybereason"
 
 
 # --------------------------------------------------------------------------- #
@@ -525,7 +544,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     pb = sub.add_parser("backup", help="export your Slack history via slackdump")
-    pb.add_argument("--workspace", help="Slack workspace subdomain (e.g. acme)")
+    pb.add_argument("--workspace", default=default_workspace(),
+                    help="Slack workspace subdomain. Default: SLACK_ARCHIVE_WORKSPACE env var, "
+                         "then workspace.txt, then 'cybereason'. e.g. acme")
     pb.add_argument("--out", default=str(DEFAULT_EXPORT), help="output export directory")
     pb.add_argument("--pick", action="store_true", help="interactively choose public channels to include (terminal checkbox)")
     pb.add_argument("--channels", nargs="*", help="specific channel IDs/URLs to export (instead of member-only)")

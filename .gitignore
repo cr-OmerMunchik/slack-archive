@@ -28,6 +28,9 @@ search.db
 /channels.txt
 /channels.txt.bak
 
+# Optional per-user default workspace override (template: workspace.example.txt)
+/workspace.txt
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
