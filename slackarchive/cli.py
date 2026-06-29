@@ -397,7 +397,19 @@ def cmd_backup(args: argparse.Namespace) -> int:
     if rc != 0:
         print(f"\nconvert failed (code {rc}).", file=sys.stderr)
         return rc
-    print("\nDone. Next:\n  python -m slackarchive index\n  python -m slackarchive serve")
+
+    captured = 0
+    if export_dir.exists():
+        captured = sum(1 for d in export_dir.iterdir()
+                       if d.is_dir() and d.name not in ("attachments", "__uploads"))
+    print(f"\nArchive now holds {captured} conversation(s).")
+    if total_convs and captured < total_convs * 0.9:
+        print(f"\n⚠ INCOMPLETE: you belong to ~{total_convs} conversations but only {captured} were")
+        print("  captured — Slack throttling/interruption stopped it before reaching the rest")
+        print("  (the largest channels consume most of the time). To finish a complete backup:")
+        print("    • pick a smaller set that can finish:   backup --pick --fresh   (untick huge channels)")
+        print("    • or capture specific ones:             backup --channels <id ...> --fresh --out data/export-extra")
+    print("\nNext:\n  python -m slackarchive index\n  python -m slackarchive serve")
     return 0
 
 
