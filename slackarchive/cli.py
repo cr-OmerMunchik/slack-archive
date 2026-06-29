@@ -403,7 +403,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
         pass
 
     _print_capture_banner(resuming, logpath)
-    rc, elapsed = _run_capture(capture, logpath, "Resume" if resuming else "Archive", total_convs)
+    rc, elapsed, processed = _run_capture(capture, logpath, "Resume" if resuming else "Archive", total_convs)
     if rc != 0:
         print(f"\nslackdump exited with code {rc} after {_fmt_dur(elapsed)}. "
               "Re-run backup to resume where it stopped.", file=sys.stderr)
@@ -418,17 +418,24 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print(f"\nconvert failed (code {rc}).", file=sys.stderr)
         return rc
 
-    captured = 0
+    # conversations with messages in the window (folders are only created for non-empty ones)
+    with_msgs = 0
     if export_dir.exists():
-        captured = sum(1 for d in export_dir.iterdir()
-                       if d.is_dir() and d.name not in ("attachments", "__uploads"))
-    print(f"\nArchive now holds {captured} conversation(s).")
-    if total_convs and captured < total_convs * 0.9:
-        print(f"\n⚠ INCOMPLETE: you belong to ~{total_convs} conversations but only {captured} were")
-        print("  captured — Slack throttling/interruption stopped it before reaching the rest")
-        print("  (the largest channels consume most of the time). To finish a complete backup:")
-        print("    • pick a smaller set that can finish:   backup --pick --fresh   (untick huge channels)")
-        print("    • or capture specific ones:             backup --channels <id ...> --fresh --out data/export-extra")
+        with_msgs = sum(1 for d in export_dir.iterdir()
+                        if d.is_dir() and d.name not in ("attachments", "__uploads"))
+    # "complete" = slackdump processed (≈)all the conversations we asked for. Empty-in-window
+    # conversations have no folder, so we must NOT judge completeness by folder count.
+    if total_convs and processed < total_convs * 0.9:
+        print(f"\n⚠ INCOMPLETE: only {processed} of ~{total_convs} selected conversations were processed "
+              "before it stopped.")
+        print("  If this was a resume of a partial archive, run `backup --fresh` for a full capture;")
+        print("  if it was throttled, just re-run backup to continue.")
+    else:
+        empty = max(0, (total_convs or processed) - with_msgs)
+        line = f"\n✓ Backup complete: {with_msgs} conversation(s) with messages in your time window"
+        if empty:
+            line += f"  ({empty} had no messages in that window)"
+        print(line + ".")
     print("\nNext:\n  python -m slackarchive index\n  python -m slackarchive serve")
     return 0
 
@@ -781,7 +788,7 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
         rc = 130
     _emit_progress(what, time.time() - start, len(convs), threads, waits, total_convs,
                    len(convs) - prev_convs, threads - prev_threads, max(1.0, time.time() - last_beat))
-    return rc, time.time() - start
+    return rc, time.time() - start, len(convs)
 
 
 def build_parser() -> argparse.ArgumentParser:
