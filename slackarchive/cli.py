@@ -324,21 +324,24 @@ def cmd_backup(args: argparse.Namespace) -> int:
                 channels += _read_channel_tokens(Path(args.channels_file))
 
     files_flag = "-files" if include_files else "-files=false"
-    common: list[str] = []
+    flags: list[str] = []
     if args.enterprise:
-        common.append("-enterprise")
+        flags.append("-enterprise")
     if args.workspace:
-        common += ["-workspace", args.workspace]
+        flags += ["-workspace", args.workspace]
+    if args.yes:
+        flags.append("-y")
 
+    # IMPORTANT: slackdump treats anything AFTER the positional <archive>/<links> as channel
+    # LINKS, so every flag must come BEFORE the archive path (resume) and before links (archive).
     if resuming:
         # resumable + incremental; skip threads we already have in full to cut rate-limit hits
-        capture = [sd, "resume", str(archive_dir), "-threads", "-skip-complete-threads", files_flag] + common
+        capture = ([sd, "resume", "-threads", "-skip-complete-threads", files_flag]
+                   + flags + [str(archive_dir)])
     else:
         archive_dir.mkdir(parents=True, exist_ok=True)
-        capture = [sd, "archive", "-o", str(archive_dir), files_flag] + common
+        capture = [sd, "archive", "-o", str(archive_dir), files_flag] + flags
         capture += channels if channels else ["-member-only"]
-    if args.yes:
-        capture.append("-y")
 
     # Convert the archive to an export WITHOUT copying files (-files=false): attachments
     # live only in the archive, so we never store gigabytes twice. The indexer reads the
