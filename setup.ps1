@@ -74,11 +74,18 @@ Info "Using Python: $py"
 
 # --- 3. virtualenv + deps -------------------------------------------------
 $venv = Join-Path $root ".venv"
-if (-not (Test-Path (Join-Path $venv "Scripts\python.exe"))) {
-  Info "Creating virtual environment (.venv) ..."
-  & $py -m venv $venv
-}
 $venvPy = Join-Path $venv "Scripts\python.exe"
+$needsVenv = -not (Test-Path $venvPy)
+if (-not $needsVenv) {
+  & $venvPy -m pip --version *> $null
+  if ($LASTEXITCODE -ne 0) { $needsVenv = $true }   # venv exists but pip is missing/broken
+}
+if ($needsVenv) {
+  Info "Creating virtual environment (.venv) ..."
+  if (Test-Path $venv) { Remove-Item $venv -Recurse -Force }
+  & $py -m venv $venv
+  & $venvPy -m ensurepip --upgrade *> $null
+}
 Info "Installing Python dependencies ..."
 & $venvPy -m pip install --quiet --upgrade pip
 & $venvPy -m pip install --quiet -r (Join-Path $root "requirements.txt")

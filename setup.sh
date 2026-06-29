@@ -82,13 +82,27 @@ fi
 info "Using Python: $PY"
 
 # --- 3. virtualenv + deps --------------------------------------------------
-if [ ! -x "$ROOT/.venv/bin/python" ]; then
+VENV="$ROOT/.venv"
+# (Re)create the venv if it's missing OR broken (a venv without pip happens when
+# python3-venv wasn't installed at creation time — common on fresh Ubuntu).
+if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
   info "Creating virtual environment (.venv) ..."
-  "$PY" -m venv "$ROOT/.venv"
+  rm -rf "$VENV"
+  if ! "$PY" -m venv "$VENV"; then
+    warn "Could not create a virtualenv. On Debian/Ubuntu install it first:"
+    echo "  sudo apt install -y python3-venv python3-pip"
+    exit 1
+  fi
+  # some distros don't bootstrap pip into the venv; make sure it's there
+  "$VENV/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
+fi
+if ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
+  warn "pip is missing inside the venv. On Debian/Ubuntu: sudo apt install -y python3-venv python3-pip, then re-run."
+  exit 1
 fi
 info "Installing Python dependencies ..."
-"$ROOT/.venv/bin/python" -m pip install --quiet --upgrade pip
-"$ROOT/.venv/bin/python" -m pip install --quiet -r "$ROOT/requirements.txt"
+"$VENV/bin/python" -m pip install --quiet --upgrade pip
+"$VENV/bin/python" -m pip install --quiet -r "$ROOT/requirements.txt"
 
 echo
 info "Setup complete."

@@ -19,6 +19,7 @@ Built for the situation where your company is leaving Slack (e.g. migrating to M
 
 - **Windows, macOS, or Linux.**
 - **Python 3.9+** — the setup script installs it for you if it's missing (via winget / Homebrew / your package manager).
+  - On **Debian/Ubuntu**, make sure venv + pip are present first: `sudo apt install -y python3 python3-venv python3-pip`.
 - An internet connection for the one-time download of the `slackdump` binary.
 
 Everything else (the `slackdump` binary, the Python packages) is fetched automatically into the project folder.
