@@ -64,6 +64,21 @@ That's it. The search UI runs at **http://localhost:8731** and only listens on y
 
 By default, `backup` saves **every conversation you belong to**: direct messages, group DMs, and the private/public channels you've joined.
 
+### How far back (time window)
+
+This is the key to a backup that actually **finishes**. Slack throttles thread history hard, so grabbing *all of time* on big channels can take days. By default `backup` captures the **last 6 months** — the interactive picker asks, and you can set it explicitly:
+
+```powershell
+.\backup.ps1 -Enterprise -Months 12      # last 12 months
+.\backup.ps1 -Enterprise -Since 2025-01-01
+.\backup.ps1 -Enterprise -AllTime        # everything (can be very large/slow)
+```
+```bash
+./backup.sh --enterprise --months 12   # or --since 2025-01-01  /  --all-time
+```
+
+A longer window means **much more time and disk** — start modest; you can always widen it later (re-run with a larger window).
+
 ### Easiest: the interactive picker (`-Pick`)
 
 Add `-Pick` / `--pick` to the backup to choose channels right in the terminal:

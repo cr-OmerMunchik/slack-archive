@@ -20,6 +20,9 @@ param(
   [switch]$NoPacing,
   [switch]$NoThreads,
   [string]$SkipStale,
+  [int]$Months,
+  [string]$Since,
+  [switch]$AllTime,
   [string]$Out,
   [switch]$Yes,
   [switch]$DryRun
@@ -40,6 +43,9 @@ if ($Fresh)          { $cargs += "--fresh" }
 if ($NoPacing)       { $cargs += "--no-pacing" }
 if ($NoThreads)      { $cargs += "--no-threads" }
 if ($SkipStale)      { $cargs += @("--skip-stale", $SkipStale) }
+if ($PSBoundParameters.ContainsKey('Months')) { $cargs += @("--months", $Months) }
+if ($Since)          { $cargs += @("--since", $Since) }
+if ($AllTime)        { $cargs += "--all-time" }
 if ($Out)            { $cargs += @("--out", $Out) }
 if ($Yes)            { $cargs += "-y" }
 if ($DryRun)     { $cargs += "--dry-run" }

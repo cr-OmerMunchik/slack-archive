@@ -31,9 +31,10 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
 - `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--no-files] [--fresh]
   [--no-threads] [--skip-stale DURATION] [--no-pacing]` — capture via slackdump. Creates/updates
   `data/archive` (resume if it exists; `--fresh` rebuilds), then converts to `data/export`.
-  `--no-files` = text only. On resume, `--no-threads` skips the (heavily rate-limited) thread-reply
-  fetch for a fast finish, and `--skip-stale p30d` skips dormant threads. The interactive `--pick`
-  flow also asks whether to include attachments (default yes).
+  **Time window:** default is the **last 6 months** (`-time-from`); `--months N` / `--since DATE` /
+  `--all-time` override, and the interactive picker asks. This is the main lever for a backup that
+  *finishes* (Slack throttles thread history). `--no-files` = text only. On resume, `--no-threads`
+  skips thread-reply fetching, `--skip-stale p30d` skips dormant threads. `--pick` also asks about attachments.
 - `pick-channels` — write an editable `channels.txt`; `find-channels <kw>` — search public channels by name
 - `index` — build `data/search.db` from `data/export`; resolves attachments from `data/archive`
 - `serve` — Flask UI on `127.0.0.1:8731`

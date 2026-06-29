@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -324,9 +325,24 @@ def cmd_backup(args: argparse.Namespace) -> int:
             if not args.no_channels_file:
                 channels += _read_channel_tokens(Path(args.channels_file))
 
+    # Time window — the key lever that makes big channels finishable. Default: last 6 months.
+    # Interactive picker asks; --all-time / --since / --months override.
+    if args.all_time:
+        time_from = None
+    elif args.since:
+        time_from = args.since if "T" in args.since else args.since + "T00:00:00"
+    elif args.months is not None:
+        time_from = _time_from(args.months)
+    elif args.pick:
+        time_from = _ask_time_window()
+    else:
+        time_from = _time_from(6)
+
     files_flag = "-files" if include_files else "-files=false"
     logpath = DATA_DIR / "last-backup.log"
     flags: list[str] = ["-log", str(logpath)]            # quiet console; full logs to file
+    if time_from:
+        flags += ["-time-from", time_from]
     if not args.no_pacing and PACING_CONFIG.exists():
         flags = ["-api-config", str(PACING_CONFIG)] + flags   # gentler request pacing
     if args.enterprise:
@@ -335,6 +351,10 @@ def cmd_backup(args: argparse.Namespace) -> int:
         flags += ["-workspace", args.workspace]
     if args.yes:
         flags.append("-y")
+    if time_from:
+        print(f"Time window: messages since {time_from[:10]} (older history is skipped — keeps it fast & small).")
+    else:
+        print("Time window: ALL history (no date limit — this can be very large and slow).")
 
     # IMPORTANT: slackdump treats anything AFTER the positional <archive>/<links> as channel
     # LINKS, so every flag must come BEFORE the archive path (resume) and before links (archive).
@@ -626,6 +646,38 @@ def _quote(s: str) -> str:
     return f'"{s}"' if " " in s else s
 
 
+def _time_from(months: float) -> str:
+    """slackdump -time-from value (UTC) for 'months' ago."""
+    dt = datetime.now(timezone.utc) - timedelta(days=int(round(months * 30.44)))
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _ask_time_window() -> str | None:
+    """Interactively ask how far back to back up. Returns a -time-from value, or None
+    for all history. Defaults to 6 months."""
+    try:
+        import questionary
+        ans = questionary.text(
+            "How many months of history to back up?  (Enter = 6).  "
+            "Longer periods take MUCH more time and disk. Type 'all' for everything.",
+            default="6",
+        ).ask()
+    except Exception:
+        return _time_from(6)
+    if ans is None:
+        return _time_from(6)
+    ans = ans.strip().lower()
+    if ans == "all":
+        return None
+    if not ans:
+        return _time_from(6)
+    try:
+        m = int(ans)
+    except ValueError:
+        return _time_from(6)
+    return _time_from(m) if m > 0 else None
+
+
 def _fmt_dur(seconds: float) -> str:
     s = int(seconds)
     h, s = divmod(s, 3600)
@@ -746,6 +798,9 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--channels", nargs="*", help="specific channel IDs/URLs to export (instead of member-only)")
     pb.add_argument("--channels-file", default=str(CHANNELS_FILE), help="file listing extra channels (default: channels.txt)")
     pb.add_argument("--no-channels-file", action="store_true", help="ignore channels.txt")
+    pb.add_argument("--months", type=int, default=None, help="back up messages from the last N months (default: 6; the interactive picker asks)")
+    pb.add_argument("--since", metavar="YYYY-MM-DD", help="back up messages on/after this date (overrides --months)")
+    pb.add_argument("--all-time", action="store_true", help="no date limit — back up ALL history (can be huge/slow)")
     pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
     pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
     pb.add_argument("--no-pacing", action="store_true", help="don't apply the gentle API-pacing config (use slackdump defaults)")
