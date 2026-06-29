@@ -28,9 +28,11 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
 
 ## The CLI under the scripts
 `python -m slackarchive <command>`:
-- `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--no-files] [--fresh]` —
-  capture via slackdump. Creates/updates `data/archive` (resume if it exists; `--fresh` rebuilds),
-  then converts to `data/export`. `--no-files` = text only (much smaller). The interactive `--pick`
+- `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--no-files] [--fresh]
+  [--no-threads] [--skip-stale DURATION] [--no-pacing]` — capture via slackdump. Creates/updates
+  `data/archive` (resume if it exists; `--fresh` rebuilds), then converts to `data/export`.
+  `--no-files` = text only. On resume, `--no-threads` skips the (heavily rate-limited) thread-reply
+  fetch for a fast finish, and `--skip-stale p30d` skips dormant threads. The interactive `--pick`
   flow also asks whether to include attachments (default yes).
 - `pick-channels` — write an editable `channels.txt`; `find-channels <kw>` — search public channels by name
 - `index` — build `data/search.db` from `data/export`; resolves attachments from `data/archive`

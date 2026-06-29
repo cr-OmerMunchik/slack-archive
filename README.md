@@ -198,6 +198,7 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 | **`sqlite3 was built without FTS5`** | Use a python.org build of Python (its bundled SQLite includes FTS5), then re-run setup. |
 | **Port 8731 in use** | `.\search.ps1 -Port 9000` or `./search.sh --port 9000`. |
 | **Huge workspace / slow / rate-limited** | Normal — Slack throttles thread fetches. The archive is **resumable**: stop and re-run `backup` to continue, and repeat runs are incremental. Use `-NoFiles` / `--no-files` to skip attachments. |
+| **ETA keeps climbing / stuck fetching threads** | Slack throttles thread *replies* to a crawl — full thread history can be impractically slow. Finish now with `-NoThreads` / `--no-threads` (skips remaining thread replies; keeps all messages + threads already saved), or grab just recent ones with `-SkipStale p30d` / `--skip-stale p30d`. |
 | **Windows blocks slackdump.exe** | Setup already unblocks it; if prompted, choose *More info → Run anyway*. |
 
 ---

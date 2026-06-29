@@ -339,13 +339,20 @@ def cmd_backup(args: argparse.Namespace) -> int:
     # IMPORTANT: slackdump treats anything AFTER the positional <archive>/<links> as channel
     # LINKS, so every flag must come BEFORE the archive path (resume) and before links (archive).
     if resuming:
-        # resumable + incremental; skip threads we already have in full to cut rate-limit hits
-        capture = ([sd, "resume", "-threads", "-skip-complete-threads", files_flag]
-                   + flags + [str(archive_dir)])
+        if args.no_threads:
+            resume_flags: list[str] = []           # omit -threads => don't fetch thread replies
+        else:
+            resume_flags = ["-threads", "-skip-complete-threads"]
+            if args.skip_stale:                    # skip dormant threads => finishes far sooner
+                resume_flags += ["-skip-stale-threads", args.skip_stale]
+        capture = [sd, "resume"] + resume_flags + [files_flag] + flags + [str(archive_dir)]
     else:
         archive_dir.mkdir(parents=True, exist_ok=True)
         capture = [sd, "archive", "-o", str(archive_dir), files_flag] + flags
         capture += channels if channels else ["-member-only"]
+        if args.no_threads or args.skip_stale:
+            print("note: --no-threads / --skip-stale only take effect when resuming an existing "
+                  "archive; a fresh archive captures all threads.", file=sys.stderr)
 
     # Convert the archive to an export WITHOUT copying files (-files=false): attachments
     # live only in the archive, so we never store gigabytes twice. The indexer reads the
@@ -646,24 +653,23 @@ def _read_new_lines(path: Path, pos: int) -> tuple[int, list[str]]:
         return pos, []
 
 
-def _emit_progress(what: str, elapsed: float, convs: int, threads: int,
-                   waits: int, total_convs: int | None) -> None:
-    parts = []
-    eta = ""
-    if total_convs:
-        parts.append(f"~{convs}/{total_convs} conversations")
-        if 0 < convs < total_convs:
-            frac = convs / total_convs
-            eta = f" · rough ETA ~{_fmt_dur(elapsed * (1 - frac) / frac)} left"
-        elif convs >= total_convs:
-            eta = " · wrapping up"
-    else:
-        parts.append(f"{convs} conversations")
-    parts.append(f"{threads:,} threads")
-    parts.append(f"{_fmt_dur(elapsed)} elapsed")
+def _emit_progress(what: str, elapsed: float, convs: int, threads: int, waits: int,
+                   total_convs: int | None, d_convs: int, interval: float) -> None:
+    """Honest progress line. ETA is based on *recent* conversation rate, not a cumulative
+    fraction — so when the run stalls on rate-limited threads it says so instead of
+    inflating an ETA forever."""
+    parts = [f"~{convs}/{total_convs} conversations" if total_convs else f"{convs} conversations",
+             f"{threads:,} threads", f"{_fmt_dur(elapsed)} elapsed"]
     if waits:
         parts.append(f"{waits} throttle waits")
-    print(f"   ⏳ {what}: " + " · ".join(parts) + eta, flush=True)
+    if total_convs and convs >= total_convs:
+        tail = " · wrapping up"
+    elif total_convs and d_convs > 0 and interval > 0:
+        rate = d_convs / interval                       # conversations/sec, recent window
+        tail = f" · rough ETA ~{_fmt_dur((total_convs - convs) / rate)} at current pace"
+    else:
+        tail = " · ⚠ crawling on rate-limited threads (no ETA — see --no-threads / --skip-stale)"
+    print(f"   ⏳ {what}: " + " · ".join(parts) + tail, flush=True)
 
 
 def _run_capture(cmd: list[str], logpath: Path, what: str,
@@ -674,6 +680,7 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
     convs: set[str] = set()
     threads = waits = 0
     pos = 0
+    prev_convs = 0
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         while True:
@@ -693,8 +700,9 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
                     print("   ! " + ln.strip()[:160], flush=True)   # surface real (non-throttle) errors
             now = time.time()
             if now - last_beat >= 30:
-                _emit_progress(what, now - start, len(convs), threads, waits, total_convs)
-                last_beat = now
+                _emit_progress(what, now - start, len(convs), threads, waits, total_convs,
+                               len(convs) - prev_convs, now - last_beat)
+                prev_convs, last_beat = len(convs), now
             if done:
                 break
             time.sleep(3)
@@ -705,7 +713,8 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
         except Exception:
             pass
         rc = 130
-    _emit_progress(what, time.time() - start, len(convs), threads, waits, total_convs)
+    _emit_progress(what, time.time() - start, len(convs), threads, waits, total_convs,
+                   len(convs) - prev_convs, max(1.0, time.time() - last_beat))
     return rc, time.time() - start
 
 
@@ -728,6 +737,8 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
     pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
     pb.add_argument("--no-pacing", action="store_true", help="don't apply the gentle API-pacing config (use slackdump defaults)")
+    pb.add_argument("--no-threads", action="store_true", help="on resume, skip fetching thread replies (fast finish; keeps threads already saved)")
+    pb.add_argument("--skip-stale", metavar="DURATION", help="on resume, skip threads with no replies in DURATION (e.g. p30d, p8w) to finish faster")
     pb.add_argument("--enterprise", action="store_true", help="required for Slack Enterprise Grid workspaces")
     pb.add_argument("--skip-login", action="store_true", help="don't auto-run login even if not authenticated")
     pb.add_argument("-y", "--yes", action="store_true", help="pass -y to slackdump (answer yes to prompts)")

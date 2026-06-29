@@ -18,6 +18,8 @@ param(
   [switch]$NoFiles,
   [switch]$Fresh,
   [switch]$NoPacing,
+  [switch]$NoThreads,
+  [string]$SkipStale,
   [string]$Out,
   [switch]$Yes,
   [switch]$DryRun
@@ -36,6 +38,8 @@ if ($NoChannelsFile) { $cargs += "--no-channels-file" }
 if ($NoFiles)        { $cargs += "--no-files" }
 if ($Fresh)          { $cargs += "--fresh" }
 if ($NoPacing)       { $cargs += "--no-pacing" }
+if ($NoThreads)      { $cargs += "--no-threads" }
+if ($SkipStale)      { $cargs += @("--skip-stale", $SkipStale) }
 if ($Out)            { $cargs += @("--out", $Out) }
 if ($Yes)            { $cargs += "-y" }
 if ($DryRun)     { $cargs += "--dry-run" }
