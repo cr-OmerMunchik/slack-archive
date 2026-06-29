@@ -3,6 +3,8 @@
 > **Working title:** `slack-archive`
 > **Status:** **IMPLEMENTED 2026-06-29** — all milestones (§8) complete and validated on real sample data (search, threads, attachments, multi-export indexing, cross-platform scripts). Remaining: run the full real backup; optional polish. Decisions locked (Python+Flask, attachments included, MIT license). Step-0 feasibility passed — see §3a.
 > **Author context:** Personal backup of one's own accessible Slack history ahead of a company migration from Slack to Microsoft Teams. Intended to be open-sourced internally and shared with colleagues.
+>
+> **Note (post-implementation):** the capture step evolved beyond the original `export`-based design in §7.1. It now uses slackdump's **resumable `archive`/`resume`** with a **default 6-month time window**, an interactive `--pick` channel selector, and gentle API pacing. **See [README.md](README.md) for current, authoritative usage** — the commands in §7.1 below are historical.
 
 ---
 

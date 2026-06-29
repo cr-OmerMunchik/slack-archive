@@ -9,6 +9,7 @@ Built for the situation where your company is leaving Slack (e.g. migrating to M
 - 🧵 **Reads like Slack** — threads, @mentions, links, code blocks, inline images and file attachments.
 - 💻 **Cross-platform** — Windows, macOS, Linux. One setup script handles all dependencies.
 - 🙅 **No admin / no app approval** — uses [`slackdump`](https://github.com/rusq/slackdump) with your normal Slack login.
+- ⏯️ **Resumable & incremental** — captures the last 6 months by default (configurable); stop and re-run anytime to continue, and routine backups only fetch what's new.
 
 > You can only back up what *you* can already see in Slack. This is your own history, saved for your own reference.
 
@@ -32,14 +33,12 @@ Everything else (the `slackdump` binary, the Python packages) is fetched automat
 # 1. One-time setup: downloads slackdump, sets up Python + dependencies
 powershell -ExecutionPolicy Bypass -File .\setup.ps1
 
-# 2. (optional) Choose which channels to back up
-.\pick.ps1 -Enterprise                        # then edit channels.txt; see "Choosing what to back up"
+# 2. Back up your Slack history. Opens a browser to log in, then interactively lets you
+#    pick channels, choose whether to include attachments, and how far back (default 6 months).
+.\backup.ps1 -Enterprise -Pick                # Slack Enterprise Grid (e.g. Cybereason)
+.\backup.ps1 -Pick                             # non-Grid workspaces
 
-# 3. Back up your Slack history (opens a browser for you to log in)
-.\backup.ps1 -Enterprise                      # Slack Enterprise Grid
-.\backup.ps1                                   # non-Grid workspaces
-
-# 4. Build the search index and open the search UI in your browser
+# 3. Build the search index and open the search UI in your browser
 .\search.ps1
 ```
 
@@ -49,8 +48,8 @@ powershell -ExecutionPolicy Bypass -File .\setup.ps1
 chmod +x setup.sh backup.sh search.sh
 
 ./setup.sh                                     # one-time setup
-./pick.sh --enterprise                         # (optional) choose channels, then edit channels.txt
-./backup.sh --enterprise                       # drop --enterprise if you're not on Slack Enterprise Grid
+./backup.sh --enterprise --pick                # log in, then pick channels + attachments + how far back
+./backup.sh --pick                             # non-Grid workspaces
 ./search.sh                                    # builds the index and opens the browser
 ```
 
@@ -79,9 +78,9 @@ This is the key to a backup that actually **finishes**. Slack throttles thread h
 
 A longer window means **much more time and disk** — start modest; you can always widen it later (re-run with a larger window).
 
-### Easiest: the interactive picker (`-Pick`)
+### Recommended: the interactive picker (`-Pick`)
 
-Add `-Pick` / `--pick` to the backup to choose channels right in the terminal:
+This is the easiest way to back up, and what the Quickstart uses. Add `-Pick` / `--pick` to `backup` and it walks you through everything in the terminal — which channels, whether to include attachments, and how far back — no files to edit:
 
 ```powershell
 .\backup.ps1 -Enterprise -Pick      # Windows
