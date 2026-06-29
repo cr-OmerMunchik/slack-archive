@@ -1,0 +1,21 @@
+# channels.example.txt — template for channels.txt
+#
+# `backup` reads channels.txt (this file is just the committed example).
+# The easiest way to create channels.txt is to run the picker, which lists every
+# conversation you're in, all pre-selected:
+#
+#     Windows:        .\pick.ps1 -Enterprise
+#     macOS/Linux:    ./pick.sh --enterprise
+#     (drop -Enterprise/--enterprise if you're not on Slack Enterprise Grid)
+#
+# Then edit channels.txt: comment out (#) anything you don't want, and paste extra
+# PUBLIC channel links at the bottom (in Slack: right-click a channel -> Copy link).
+#
+# You can also just create channels.txt by hand. One entry per line:
+#   https://yourworkspace.slack.com/archives/C0123ABCD   # a channel link
+#   C0123ABCD                                            # a channel ID
+#   ^C0FObsolete                                          # exclude something
+# Text after # is a comment and is ignored.
+#
+# If channels.txt is absent or empty, `backup` defaults to exporting every
+# conversation you belong to (member-only).

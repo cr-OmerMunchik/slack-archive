@@ -1,0 +1,48 @@
+{% macro avatar(m) %}
+  {%- set label = m.display_name or m.real_name or m.user_name or m.user_id or '?' -%}
+  <div class="avatar" title="{{ label }}">{{ label[:1]|upper }}</div>
+{% endmacro %}
+
+{% macro files_block(m) %}
+  {% if m.files %}
+  <div class="files">
+    {% for f in m.files %}
+      {% if f.local_path and f.mimetype and f.mimetype.startswith('image/') %}
+        <a class="file-img" href="{{ url_for('serve_file', relpath=f.local_path) }}" target="_blank">
+          <img loading="lazy" src="{{ url_for('serve_file', relpath=f.local_path) }}" alt="{{ f.name }}">
+        </a>
+      {% elif f.local_path %}
+        <a class="file-link" href="{{ url_for('serve_file', relpath=f.local_path) }}" target="_blank">
+          📎 {{ f.name }}{% if f.size %} <span class="muted">({{ (f.size/1024)|round|int }} KB)</span>{% endif %}
+        </a>
+      {% else %}
+        <span class="file-missing" title="Not downloaded locally{% if f.permalink %}; original Slack link may no longer work{% endif %}">
+          📎 {{ f.name }} <span class="muted">(not saved locally)</span>
+        </span>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro message(m, conv, anchor='', show_thread_button=true) %}
+  <div class="msg{% if anchor and m.ts == anchor %} anchor{% endif %}" id="ts-{{ m.ts }}">
+    {{ avatar(m) }}
+    <div class="msg-body">
+      <div class="msg-head">
+        <span class="msg-author">{{ m.display_name or m.real_name or m.user_name or m.user_id or 'unknown' }}</span>
+        <span class="msg-time">{{ m.epoch|dt }}</span>
+        {% if m.edited %}<span class="muted">(edited)</span>{% endif %}
+        {% if m.subtype %}<span class="subtype muted">{{ m.subtype }}</span>{% endif %}
+      </div>
+      <div class="msg-text">{{ m.html|safe }}</div>
+      {{ files_block(m) }}
+      {% if show_thread_button and m.reply_count and (not m.thread_ts or m.thread_ts == m.ts) %}
+        <button class="thread-btn" data-conv="{{ conv.id }}" data-thread="{{ m.ts }}">
+          💬 {{ m.reply_count }} {{ 'reply' if m.reply_count == 1 else 'replies' }}
+        </button>
+        <div class="thread-mount" hidden></div>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}

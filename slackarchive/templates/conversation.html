@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% from '_message.html' import message with context %}
+{% block title %}{{ conv.name or conv.id }} · slack-archive{% endblock %}
+
+{% block content %}
+<div class="conv-view" data-anchor="{{ anchor }}">
+  <div class="conv-header">
+    <span class="badge {{ TYPE_BADGES.get(conv.type, ['','x'])[1] }}">{{ TYPE_BADGES.get(conv.type, ['#'])[0] }}</span>
+    <h1>{{ conv.name or conv.id }}</h1>
+    <span class="muted">{{ type_label(conv.type) }}{% if conv.num_members %} · {{ conv.num_members }} members{% endif %}{% if conv.is_archived %} · archived{% endif %}</span>
+  </div>
+  {% if conv.topic %}<p class="conv-topic muted">{{ conv.topic }}</p>{% endif %}
+
+  {% if anchor %}<p class="context-note muted">Showing context around your search result — <a href="{{ url_for('conversation', conv_id=conv.id) }}">view from the top</a>.</p>{% endif %}
+
+  <div class="messages">
+    {% set ns = namespace(last_day='') %}
+    {% for m in messages %}
+      {% set day = m.epoch | daystamp %}
+      {% if day != ns.last_day %}
+        <div class="day-divider"><span>{{ day }}</span></div>
+        {% set ns.last_day = day %}
+      {% endif %}
+      {{ message(m, conv, anchor=anchor) }}
+    {% else %}
+      <p class="muted">No messages in this conversation.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

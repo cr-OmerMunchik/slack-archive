@@ -1,0 +1,6 @@
+# Runtime dependencies for the slack-archive search app.
+# Kept deliberately tiny: everything else (sqlite3, html, json, http.server bits)
+# comes from the Python standard library.
+Flask>=3.0,<4.0
+# Cross-platform interactive terminal checkbox for `backup --pick` (channel picker).
+questionary>=2.0,<3.0

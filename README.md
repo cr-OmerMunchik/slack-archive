@@ -1,0 +1,223 @@
+# 🗄️ slack-archive
+
+**Back up your own Slack history — DMs, group chats, private & public channels, and file attachments — to your computer, and search it in your browser. Fully offline. No admin rights needed.**
+
+Built for the situation where your company is leaving Slack (e.g. migrating to Microsoft Teams) and you don't want to lose the conversations, decisions, and links that live in your message history.
+
+- 🔒 **Private & local** — your data is downloaded to *your* machine and never leaves it.
+- 🔎 **Real full-text search** — fast SQLite FTS5 with ranked results, highlighted snippets, and filters by conversation, person, type, and date.
+- 🧵 **Reads like Slack** — threads, @mentions, links, code blocks, inline images and file attachments.
+- 💻 **Cross-platform** — Windows, macOS, Linux. One setup script handles all dependencies.
+- 🙅 **No admin / no app approval** — uses [`slackdump`](https://github.com/rusq/slackdump) with your normal Slack login.
+
+> You can only back up what *you* can already see in Slack. This is your own history, saved for your own reference.
+
+---
+
+## Requirements
+
+- **Windows, macOS, or Linux.**
+- **Python 3.9+** — the setup script installs it for you if it's missing (via winget / Homebrew / your package manager).
+- An internet connection for the one-time download of the `slackdump` binary.
+
+Everything else (the `slackdump` binary, the Python packages) is fetched automatically into the project folder.
+
+---
+
+## Quickstart
+
+### Windows (PowerShell)
+
+```powershell
+# 1. One-time setup: downloads slackdump, sets up Python + dependencies
+powershell -ExecutionPolicy Bypass -File .\setup.ps1
+
+# 2. (optional) Choose which channels to back up
+.\pick.ps1 -Enterprise                        # then edit channels.txt; see "Choosing what to back up"
+
+# 3. Back up your Slack history (opens a browser for you to log in)
+.\backup.ps1                                  # standard workspaces
+.\backup.ps1 -Enterprise -Workspace yourname  # Slack Enterprise Grid (see note below)
+
+# 4. Build the search index and open the search UI in your browser
+.\search.ps1
+```
+
+### macOS / Linux
+
+```bash
+chmod +x setup.sh backup.sh search.sh
+
+./setup.sh                                     # one-time setup
+./pick.sh --enterprise                         # (optional) choose channels, then edit channels.txt
+./backup.sh                                    # or: ./backup.sh --enterprise --workspace yourname
+./search.sh                                    # builds the index and opens the browser
+```
+
+That's it. The search UI runs at **http://localhost:8731** and only listens on your own machine.
+
+> **Logging in:** the backup step opens a browser window. Pick **Interactive** when asked for a login method (works with SSO/Okta/password). If your company uses *Sign in with Google*, choose **QR Code** and scan it with the Slack app on your phone. Your workspace name is the part before `.slack.com` — to find it, right-click any message in Slack → *Copy link*.
+
+---
+
+## Choosing what to back up
+
+By default, `backup` saves **every conversation you belong to**: direct messages, group DMs, and the private/public channels you've joined.
+
+### Easiest: the interactive picker (`-Pick`)
+
+Add `-Pick` / `--pick` to the backup to choose channels right in the terminal:
+
+```powershell
+.\backup.ps1 -Enterprise -Pick      # Windows
+./backup.sh --enterprise --pick     # macOS/Linux
+```
+
+It always keeps your own conversations (DMs, group chats, private channels). Then — because a workspace can have **tens of thousands** of public channels — it's **search-driven** instead of one endless list:
+
+```
+You belong to 5 channel(s) — all pre-selected. 31,402 more public channels are available.
+
+✓ Channels to back up (5): #team-private, #engineering, #releases, ...
+Search channels to add/remove (blank to review & finish): platform
+Space = toggle (ticked = included), Enter = apply:
+ ❯ ◉ #platform
+   ◯ #platform-eu
+   ◯ #platform-fyi
+  -> 6 channel(s) selected so far.
+
+=== This backup will include ===
+  - all of your DMs and group chats
+  - 6 channel(s):  #team-private  #engineering  #releases  #platform  ...
+Proceed?  ❯ Yes - back up this selection / No - keep choosing / Cancel
+```
+
+Type part of a name, tick matches with **Space**, **Enter** to apply, repeat for more, then approve. It's built to be hard to lose track:
+
+- **Shows your running selection** before every search (`✓ Channels to back up (3): #engineering, …`).
+- **Pre-ticks the channels you belong to** (and anything you added before) — untick to remove them.
+- **Remembers your picks between runs**, so you curate your channel list once and reuse it.
+- The 30k-channel directory is fetched once and **cached**, so searching is instant after the first run.
+
+Cross-platform (Windows/macOS/Linux via `questionary`).
+
+> **Enterprise Grid note:** Slack/slackdump can't reliably report which *public* channels you belong to, so your sidebar's public channels are **not** auto-included — search for and add the ones you want here (the picker remembers them afterward).
+
+### Or edit a file
+
+Prefer not to use the interactive picker? Generate an editable `channels.txt` with every conversation you're in, all pre-selected:
+
+```powershell
+.\pick.ps1 -Enterprise        # Windows  (drop -Enterprise if not on Grid)
+./pick.sh --enterprise        # macOS/Linux
+```
+
+Then open **`channels.txt`** and:
+- **Comment out** (put `#` in front of) anything you *don't* want to back up.
+- **Add extra public channels** you're *not* in by pasting their links/IDs at the bottom.
+
+Don't know a public channel's link or ID? **Search for it by name:**
+
+```powershell
+.\find.ps1 -Enterprise releases     # Windows  → lists public channels matching "releases" + their IDs
+./find.sh --enterprise releases     # macOS/Linux
+```
+
+Then paste the IDs you want into `channels.txt`:
+
+```
+# ---- Private ----
+C01ABCDEFGH    # team-private
+# C01IJKLMNOP  # design-private      <-- commented out = skipped
+
+# ---- Extra public channels ----
+C01QRSTUVWX    # engineering   (found via find-channels)
+https://yourworkspace.slack.com/archives/C0123ABCD
+```
+
+The next `backup` exports exactly that selection. (1:1 DMs appear as user IDs in the picker file, but real names show up everywhere in the search UI.)
+
+> Prefer not to use the picker? Just create `channels.txt` by hand (see `channels.example.txt`). If `channels.txt` is absent or empty, `backup` falls back to everything you belong to.
+
+---
+
+## Searching
+
+Open the UI and type in the search box. You can:
+
+- **Filter** by type (channels / private / group DMs / DMs), by a specific conversation, by who sent it, and by date range.
+- **Click any result** to jump into the conversation with surrounding context and the hit highlighted.
+- **Expand threads** inline, and **view image attachments and files** that were downloaded with the backup.
+
+---
+
+## How it works
+
+Three decoupled stages:
+
+```
+ slackdump  ──►  data/export/   ──►  index (Python)  ──►  data/search.db  ──►  serve (Flask)
+ (login +        Slack-standard      parse + render        SQLite + FTS5         localhost
+  export)        JSON + files        to a clean DB         full-text search      web UI
+```
+
+1. **Capture** — [`slackdump`](https://github.com/rusq/slackdump) downloads your conversations and files using your own login.
+2. **Index** — a small Python step parses the export, resolves @mentions and links to readable text, renders display HTML, and builds a SQLite **FTS5** full-text index.
+3. **Serve** — a tiny local Flask app gives you the search + browse UI. No external requests are ever made.
+
+---
+
+## Updating later
+
+Re-run `backup` to fetch new messages, then `search` (or `search.ps1 -Reindex` / `./search.sh --reindex`) to rebuild the index. `slackdump` exports are resumable, so interrupted backups can be re-run safely.
+
+---
+
+## Security & privacy
+
+- **Your data stays on your machine.** The web server binds to `127.0.0.1` (localhost) only and makes no outbound connections.
+- **Nothing sensitive is committed to git.** `.gitignore` excludes `data/` (your messages and files), `bin/` (the binary), and `.venv/`. Only the *code* is meant to be shared.
+- **Check your company policy.** Backing up your own conversations during a sanctioned migration is normal, but confirm it's consistent with your organisation's data-handling rules, and keep the data local.
+- **Enterprise Grid visibility.** On Slack Enterprise Grid, automated access *can* be visible to workspace admins. This is expected behaviour of `slackdump`, not something this tool hides.
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| **`auth error` / nothing exports** | You're not logged in. Run `backup` again — it launches the login. On Enterprise Grid, add `-Enterprise` / `--enterprise`. |
+| **Login window won't complete (SSO/Okta)** | Re-run and choose **QR Code**, scan with the Slack mobile app. |
+| **"Sign in with Google" workspace** | Choose **QR Code** or **User Browser** at the login-method prompt. |
+| **Enterprise Grid** | Always pass `-Enterprise` (Windows) / `--enterprise` (macOS/Linux). |
+| **`sqlite3 was built without FTS5`** | Use a python.org build of Python (its bundled SQLite includes FTS5), then re-run setup. |
+| **Port 8731 in use** | `.\search.ps1 -Port 9000` or `./search.sh --port 9000`. |
+| **Huge workspace / slow** | Normal — Slack rate-limits. The export is resumable; just re-run `backup`. |
+| **Windows blocks slackdump.exe** | Setup already unblocks it; if prompted, choose *More info → Run anyway*. |
+
+---
+
+## Project layout
+
+```
+slack-archive/
+├── setup.ps1 / setup.sh        # one-time bootstrap (slackdump + Python + venv)
+├── pick.ps1  / pick.sh         # generate an editable channels.txt to choose channels
+├── find.ps1  / find.sh         # search public channels by name (to add to channels.txt)
+├── backup.ps1 / backup.sh      # export your Slack history
+├── search.ps1 / search.sh      # build index + open the search UI
+├── channels.example.txt        # template; your real channels.txt is git-ignored
+├── requirements.txt            # Python deps (just Flask)
+├── slackarchive/               # the Python package
+│   ├── cli.py  db.py  ingest.py  server.py  slackfmt.py
+│   ├── templates/  static/
+├── bin/                        # slackdump binary (downloaded; git-ignored)
+└── data/                       # your export + search.db (git-ignored)
+```
+
+---
+
+## Credits & license
+
+- Capture powered by [**slackdump**](https://github.com/rusq/slackdump) by Rustam Gilyazov (GPL-3.0; downloaded as a standalone binary, not bundled).
+- This project is released under the **MIT License** — see [LICENSE](LICENSE).

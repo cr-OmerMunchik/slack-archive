@@ -1,0 +1,6 @@
+{% from '_message.html' import message with context %}
+<div class="thread">
+  {% for m in messages %}
+    {{ message(m, conv, show_thread_button=false) }}
+  {% endfor %}
+</div>

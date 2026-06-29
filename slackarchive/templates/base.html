@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}slack-archive{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗄️</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">🗄️ slack-archive</a>
+    <form class="searchbar" action="{{ url_for('index') }}" method="get" role="search">
+      <input type="search" name="q" placeholder="Search your Slack history…"
+             value="{{ q if q is defined else '' }}" autofocus autocomplete="off">
+      <button type="submit">Search</button>
+    </form>
+  </header>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    {% if stats is defined and stats %}
+      <span>{{ "{:,}".format(stats.messages) }} messages · {{ "{:,}".format(stats.files) }} files</span>
+      {% if stats.indexed_at %}<span>indexed {{ stats.indexed_at[:10] }}</span>{% endif %}
+    {% endif %}
+    <span class="muted">offline · local only</span>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

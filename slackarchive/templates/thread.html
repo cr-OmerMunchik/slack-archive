@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Thread · {{ conv.name or conv.id }}{% endblock %}
+{% block content %}
+<div class="conv-view">
+  <div class="conv-header">
+    <span class="badge {{ TYPE_BADGES.get(conv.type, ['','x'])[1] }}">{{ TYPE_BADGES.get(conv.type, ['#'])[0] }}</span>
+    <h1>Thread in {{ conv.name or conv.id }}</h1>
+    <a class="muted" href="{{ url_for('conversation', conv_id=conv.id) }}?ts={{ thread_ts }}#ts-{{ thread_ts }}">view in conversation →</a>
+  </div>
+  {% include '_thread.html' %}
+</div>
+{% endblock %}

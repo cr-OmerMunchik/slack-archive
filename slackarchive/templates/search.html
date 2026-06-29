@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}{% if q %}{{ q }} · {% endif %}slack-archive{% endblock %}
+
+{% block content %}
+<div class="search-layout">
+  <aside class="filters">
+    <form method="get" action="{{ url_for('index') }}">
+      <input type="hidden" name="q" value="{{ q }}">
+
+      <h3>Type</h3>
+      {% for key, label in [('public_channel','Channels'),('private_channel','Private channels'),('mpim','Group DMs'),('im','Direct messages')] %}
+        <label class="chk"><input type="checkbox" name="type" value="{{ key }}"
+               {% if key in sel_types %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+
+      <h3>Conversation</h3>
+      <select name="conv" multiple size="7">
+        {% for t, label in [('public_channel','Channels'),('private_channel','Private channels'),('mpim','Group DMs'),('im','Direct messages')] %}
+          {% set group = conversations | selectattr('type','equalto',t) | list %}
+          {% if group %}
+          <optgroup label="{{ label }}">
+            {% for c in group %}
+              <option value="{{ c.id }}" {% if c.id in sel_convs %}selected{% endif %}>{{ c.name or c.id }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endif %}
+        {% endfor %}
+      </select>
+
+      <h3>From person</h3>
+      <select name="user">
+        <option value="">Anyone</option>
+        {% for a in authors %}
+          <option value="{{ a.id }}" {% if a.id == sel_user %}selected{% endif %}>{{ a.display_name or a.real_name or a.name or a.id }}</option>
+        {% endfor %}
+      </select>
+
+      <h3>Date range</h3>
+      <label class="datefield">From <input type="date" name="from" value="{{ date_from }}"></label>
+      <label class="datefield">To <input type="date" name="to" value="{{ date_to }}"></label>
+
+      <div class="filter-actions">
+        <button type="submit">Apply filters</button>
+        <a class="muted" href="{{ url_for('index') }}?q={{ q | urlencode }}">Reset</a>
+      </div>
+    </form>
+  </aside>
+
+  <section class="results">
+    {% if not q %}
+      <div class="landing">
+        <h1>Search your Slack archive</h1>
+        <p class="muted">Type in the box above to search every message you backed up — fully offline.</p>
+        <div class="stat-cards">
+          <div class="stat"><b>{{ "{:,}".format(stats.messages) }}</b><span>messages</span></div>
+          <div class="stat"><b>{{ "{:,}".format(stats.files) }}</b><span>files</span></div>
+          {% for t, label in [('public_channel','channels'),('private_channel','private'),('mpim','group DMs'),('im','DMs')] %}
+            {% if stats.by_type.get(t) %}<div class="stat"><b>{{ stats.by_type.get(t) }}</b><span>{{ label }}</span></div>{% endif %}
+          {% endfor %}
+        </div>
+        <h2>Conversations</h2>
+        <ul class="conv-list">
+          {% for c in conversations %}
+            <li>
+              <a href="{{ url_for('conversation', conv_id=c.id) }}">
+                <span class="badge {{ TYPE_BADGES.get(c.type, ['','x'])[1] }}">{{ TYPE_BADGES.get(c.type, ['#'])[0] }}</span>
+                {{ c.name or c.id }}
+              </a>
+              <span class="muted">{{ c.msg_count }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <p class="result-count">
+        {% if total %}{{ "{:,}".format(total) }} result{{ '' if total == 1 else 's' }} for <b>“{{ q }}”</b>{% else %}No results for <b>“{{ q }}”</b>{% endif %}
+      </p>
+      {% for r in results %}
+        <a class="result" href="{{ url_for('conversation', conv_id=r.conv_id) }}?ts={{ r.ts }}#ts-{{ r.ts }}">
+          <div class="result-meta">
+            <span class="badge {{ TYPE_BADGES.get(r.conv_type, ['','x'])[1] }}">{{ TYPE_BADGES.get(r.conv_type, ['#'])[0] }} {{ r.conv_name }}</span>
+            <span class="muted">{{ r.display_name or r.real_name or r.user_name or r.user_id }} · {{ r.epoch | dt }}{% if r.has_files %} · 📎{% endif %}{% if r.thread_ts and r.thread_ts != r.ts %} · in thread{% endif %}</span>
+          </div>
+          <div class="snippet">{{ r.snippet | safe }}</div>
+        </a>
+      {% endfor %}
+
+      {% if pages > 1 %}
+        <nav class="pager">
+          {% if page > 1 %}<a href="?{{ base_qs }}&page={{ page - 1 }}">← Prev</a>{% endif %}
+          <span class="muted">Page {{ page }} of {{ pages }}</span>
+          {% if page < pages %}<a href="?{{ base_qs }}&page={{ page + 1 }}">Next →</a>{% endif %}
+        </nav>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+# Normalize line endings so the tool works cross-platform.
+* text=auto
+
+# Shell scripts MUST stay LF or they won't run on macOS/Linux.
+*.sh text eol=lf
+
+# PowerShell scripts are Windows-side; keep CRLF.
+*.ps1 text eol=crlf
+
+# Binary assets (none committed today, but future-proof).
+*.png binary
+*.jpg binary
+*.zip binary
