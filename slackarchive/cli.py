@@ -309,8 +309,6 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print(f"Found an existing archive at {archive_dir} — resuming it (incremental update).")
         print("The channel set comes from the archive; use --fresh to choose a new set.\n")
     else:
-        if args.fresh and archive_dir.exists():
-            shutil.rmtree(archive_dir, ignore_errors=True)
         if args.pick:
             if not _ensure_login(sd, args.workspace, args.skip_login):
                 print("error: login did not complete.", file=sys.stderr)
@@ -367,7 +365,6 @@ def cmd_backup(args: argparse.Namespace) -> int:
                 resume_flags += ["-skip-stale-threads", args.skip_stale]
         capture = [sd, "resume"] + resume_flags + [files_flag] + flags + [str(archive_dir)]
     else:
-        archive_dir.mkdir(parents=True, exist_ok=True)
         capture = [sd, "archive", "-o", str(archive_dir), files_flag] + flags
         capture += channels if channels else ["-member-only"]
         if args.no_threads or args.skip_stale:
@@ -396,6 +393,10 @@ def cmd_backup(args: argparse.Namespace) -> int:
         if listing:
             total_convs = sum(1 for c in listing if isinstance(c, dict) and c.get("id")) or None
 
+    # Filesystem changes happen only now — never on --dry-run: a fresh wipe + ensure dirs.
+    if not resuming and args.fresh and archive_dir.exists():
+        shutil.rmtree(archive_dir, ignore_errors=True)
+    archive_dir.mkdir(parents=True, exist_ok=True)
     logpath.parent.mkdir(parents=True, exist_ok=True)
     try:
         logpath.unlink()
