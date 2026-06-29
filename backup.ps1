@@ -17,6 +17,7 @@ param(
   [switch]$NoChannelsFile,
   [switch]$NoFiles,
   [switch]$Fresh,
+  [switch]$NoPacing,
   [string]$Out,
   [switch]$Yes,
   [switch]$DryRun
@@ -34,6 +35,7 @@ if ($Channels)       { $cargs += @("--channels") + $Channels }
 if ($NoChannelsFile) { $cargs += "--no-channels-file" }
 if ($NoFiles)        { $cargs += "--no-files" }
 if ($Fresh)          { $cargs += "--fresh" }
+if ($NoPacing)       { $cargs += "--no-pacing" }
 if ($Out)            { $cargs += @("--out", $Out) }
 if ($Yes)            { $cargs += "-y" }
 if ($DryRun)     { $cargs += "--dry-run" }

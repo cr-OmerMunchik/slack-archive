@@ -49,6 +49,10 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
   Files are deliberately NOT copied into the export (avoids double-storing GBs); the indexer reads
   attachments straight from `data/archive/__uploads` (handled in `ingest._build_file_index`, which
   understands both `F<id>-name` and `__uploads/F<id>/name` layouts).
+- **Pacing + progress:** `backup` passes `-api-config slackdump.gentle.toml` (lower request
+  rates, more retries) and `-log data/last-backup.log` (keeps the console quiet). `_run_capture`
+  polls that log to print a progress line + rough ETA (distinct conversation ids vs a total).
+  `--no-pacing` uses slackdump defaults. Pacing can't beat Slack's server-side limits.
 - **slackdump login is interactive** (a browser window) and must be run by the user.
   `slackdump` is pinned in the setup scripts (currently v4.4.1).
 - **Code layout:** `slackarchive/{cli,db,ingest,server,slackfmt}.py` + `templates/` + `static/`.

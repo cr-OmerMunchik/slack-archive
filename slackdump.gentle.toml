@@ -1,0 +1,34 @@
+# Gentle API pacing for slack-archive (passed to slackdump via -api-config).
+#
+# `boost` = target requests/minute per Slack tier. slackdump's defaults aim high
+# (tier_3 = 120/min) which, against Slack's tightened limits, produces a storm of
+# 429 "rate limited, retry" messages. These lower rates pace our requests so there's
+# far less retry churn and we're gentler on Slack. `retries` is raised so a long
+# throttle window is ridden out instead of failing an item.
+#
+# IMPORTANT: this only paces *our* side. It cannot raise Slack's server-side limits,
+# so it does not make a throttled backup finish faster — it just makes it quieter and
+# politer. Tune freely; `slackdump config check <file>` validates it.
+
+workers = 3
+download_retries = 5
+
+[tier_2]
+  boost = 10
+  burst = 2
+  retries = 50
+
+[tier_3]
+  boost = 30
+  burst = 3
+  retries = 50
+
+[tier_4]
+  boost = 5
+  burst = 2
+  retries = 30
+
+[per_request]
+  conversations = 100
+  channels = 100
+  replies = 200

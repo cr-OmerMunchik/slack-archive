@@ -174,6 +174,7 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 - **Stopped halfway?** Safe — re-run `backup` and it continues from where it stopped.
 - **Want to change your channel selection?** Run `backup -Fresh` / `--fresh` to start a new archive.
 - **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only — drops the size dramatically.
+- **Watching it run?** The console stays quiet on purpose: a progress line with a **rough ETA** prints every ~30s, and full slackdump logs go to `data/last-backup.log`. Requests are paced gently via `slackdump.gentle.toml` (this can't beat Slack's limits — it just reduces retry churn; `--no-pacing` uses slackdump defaults).
 
 ---
 
@@ -211,6 +212,7 @@ slack-archive/
 ├── backup.ps1 / backup.sh      # export your Slack history
 ├── search.ps1 / search.sh      # build index + open the search UI
 ├── channels.example.txt        # template; your real channels.txt is git-ignored
+├── slackdump.gentle.toml       # gentle API pacing passed to slackdump (-api-config)
 ├── requirements.txt            # Python deps (Flask + questionary)
 ├── slackarchive/               # the Python package
 │   ├── cli.py  db.py  ingest.py  server.py  slackfmt.py

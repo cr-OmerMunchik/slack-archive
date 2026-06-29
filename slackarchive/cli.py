@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -18,6 +18,7 @@ DEFAULT_EXPORT = DATA_DIR / "export"
 DEFAULT_DB = DATA_DIR / "search.db"
 CHANNELS_FILE = REPO_ROOT / "channels.txt"
 WORKSPACE_FILE = REPO_ROOT / "workspace.txt"
+PACING_CONFIG = REPO_ROOT / "slackdump.gentle.toml"   # -api-config: gentler request pacing
 
 
 def default_workspace() -> str | None:
@@ -324,7 +325,10 @@ def cmd_backup(args: argparse.Namespace) -> int:
                 channels += _read_channel_tokens(Path(args.channels_file))
 
     files_flag = "-files" if include_files else "-files=false"
-    flags: list[str] = []
+    logpath = DATA_DIR / "last-backup.log"
+    flags: list[str] = ["-log", str(logpath)]            # quiet console; full logs to file
+    if not args.no_pacing and PACING_CONFIG.exists():
+        flags = ["-api-config", str(PACING_CONFIG)] + flags   # gentler request pacing
     if args.enterprise:
         flags.append("-enterprise")
     if args.workspace:
@@ -358,8 +362,21 @@ def cmd_backup(args: argparse.Namespace) -> int:
         print("error: login did not complete.", file=sys.stderr)
         return 1
 
-    _print_capture_banner(resuming)
-    rc, elapsed = _run_capture(capture, "Resume" if resuming else "Archive")
+    # Rough conversation total for the ETA: the selection size, or a quick member-only count.
+    total_convs = len(channels) if channels else None
+    if total_convs is None:
+        listing = _list_channels_json(sd, args.enterprise, member_only=True)
+        if listing:
+            total_convs = sum(1 for c in listing if isinstance(c, dict) and c.get("id")) or None
+
+    logpath.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        logpath.unlink()
+    except OSError:
+        pass
+
+    _print_capture_banner(resuming, logpath)
+    rc, elapsed = _run_capture(capture, logpath, "Resume" if resuming else "Archive", total_convs)
     if rc != 0:
         print(f"\nslackdump exited with code {rc} after {_fmt_dur(elapsed)}. "
               "Re-run backup to resume where it stopped.", file=sys.stderr)
@@ -601,39 +618,94 @@ def _fmt_dur(seconds: float) -> str:
     return f"{s}s"
 
 
-def _print_capture_banner(resuming: bool) -> None:
+_CONV_RE = re.compile(r"<([CDG][A-Z0-9]{6,})>")   # a conversation id in a log line (not a Thread[...])
+
+
+def _print_capture_banner(resuming: bool, logpath: Path) -> None:
     bar = "-" * 68
     print("\n" + bar)
     print(("Resuming" if resuming else "Capturing") + " your Slack history into the archive.")
-    print("  - Progress = the message / 'stream result' lines slackdump prints below.")
-    print("  - Pauses such as 'rate limited, sleeping' are NORMAL: Slack throttles thread")
-    print("    history; slackdump waits the requested seconds and continues on its own.")
-    print("  - No exact ETA (Slack sets the pace). Rough guide: small histories take a few")
-    print("    minutes; large multi-year ones can take 30 min to several hours the FIRST time.")
+    print("  - Paced gently; can be slow — Slack throttles thread history hard.")
+    print("  - The console is kept quiet on purpose. A progress line with a ROUGH ETA")
+    print("    prints every ~30s. Full slackdump logs stream to:")
+    print(f"      {logpath}")
     print("  - RESUMABLE: press Ctrl+C anytime, then re-run backup to continue where it stopped.")
     print(bar + "\n")
 
 
-def _run_capture(cmd: list[str], what: str) -> tuple[int, float]:
-    """Run the (long) slackdump capture with native output, plus a periodic elapsed-time
-    heartbeat so it's obvious the run is still alive during rate-limit pauses."""
-    start = time.time()
-    stop = threading.Event()
-
-    def _heartbeat() -> None:
-        # first tick after 60s, then every 60s, until the process finishes
-        while not stop.wait(60):
-            print(f"\n   ⏳ {what} still running — {_fmt_dur(time.time() - start)} elapsed. "
-                  "Throttle pauses are normal; Ctrl+C is safe (it resumes).\n", flush=True)
-
-    beat = threading.Thread(target=_heartbeat, daemon=True)
-    beat.start()
+def _read_new_lines(path: Path, pos: int) -> tuple[int, list[str]]:
+    """Read newly-appended lines from slackdump's log file (it writes while we read)."""
     try:
-        rc = subprocess.run(cmd).returncode
+        if not path.exists():
+            return pos, []
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            fh.seek(pos)
+            data = fh.read()
+            return fh.tell(), data.splitlines()
+    except OSError:
+        return pos, []
+
+
+def _emit_progress(what: str, elapsed: float, convs: int, threads: int,
+                   waits: int, total_convs: int | None) -> None:
+    parts = []
+    eta = ""
+    if total_convs:
+        parts.append(f"~{convs}/{total_convs} conversations")
+        if 0 < convs < total_convs:
+            frac = convs / total_convs
+            eta = f" · rough ETA ~{_fmt_dur(elapsed * (1 - frac) / frac)} left"
+        elif convs >= total_convs:
+            eta = " · wrapping up"
+    else:
+        parts.append(f"{convs} conversations")
+    parts.append(f"{threads:,} threads")
+    parts.append(f"{_fmt_dur(elapsed)} elapsed")
+    if waits:
+        parts.append(f"{waits} throttle waits")
+    print(f"   ⏳ {what}: " + " · ".join(parts) + eta, flush=True)
+
+
+def _run_capture(cmd: list[str], logpath: Path, what: str,
+                 total_convs: int | None) -> tuple[int, float]:
+    """Run the (long) slackdump capture quietly (output -> logpath), polling the log to
+    show a clean progress line + rough ETA every ~30s."""
+    start = last_beat = time.time()
+    convs: set[str] = set()
+    threads = waits = 0
+    pos = 0
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        while True:
+            done = proc.poll() is not None
+            pos, lines = _read_new_lines(logpath, pos)
+            for ln in lines:
+                if "Thread[" in ln:
+                    threads += 1
+                else:
+                    m = _CONV_RE.search(ln)
+                    if m:
+                        convs.add(m.group(1))
+                low = ln.lower()
+                if "got rate limited" in low:
+                    waits += 1
+                elif "error" in low and "rate limit" not in low:
+                    print("   ! " + ln.strip()[:160], flush=True)   # surface real (non-throttle) errors
+            now = time.time()
+            if now - last_beat >= 30:
+                _emit_progress(what, now - start, len(convs), threads, waits, total_convs)
+                last_beat = now
+            if done:
+                break
+            time.sleep(3)
+        rc = proc.returncode
     except KeyboardInterrupt:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
         rc = 130
-    finally:
-        stop.set()
+    _emit_progress(what, time.time() - start, len(convs), threads, waits, total_convs)
     return rc, time.time() - start
 
 
@@ -655,6 +727,7 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--no-channels-file", action="store_true", help="ignore channels.txt")
     pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
     pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
+    pb.add_argument("--no-pacing", action="store_true", help="don't apply the gentle API-pacing config (use slackdump defaults)")
     pb.add_argument("--enterprise", action="store_true", help="required for Slack Enterprise Grid workspaces")
     pb.add_argument("--skip-login", action="store_true", help="don't auto-run login even if not authenticated")
     pb.add_argument("-y", "--yes", action="store_true", help="pass -y to slackdump (answer yes to prompts)")
