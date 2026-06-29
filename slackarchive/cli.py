@@ -718,19 +718,21 @@ def _read_new_lines(path: Path, pos: int) -> tuple[int, list[str]]:
 
 
 def _emit_progress(what: str, elapsed: float, convs: int, threads: int, waits: int,
-                   total_convs: int | None, d_convs: int, interval: float) -> None:
-    """Honest progress line. ETA is based on *recent* conversation rate, not a cumulative
-    fraction — so when the run stalls on rate-limited threads it says so instead of
-    inflating an ETA forever."""
+                   total_convs: int | None, d_convs: int, d_threads: int, interval: float) -> None:
+    """Honest progress line. A capture has two phases: (1) gathering each conversation's
+    messages — we can give a rough ETA from recent conversation rate; (2) fetching thread
+    replies — there's no known total, so we report progress, not a fake ETA."""
     parts = [f"~{convs}/{total_convs} conversations" if total_convs else f"{convs} conversations",
              f"{threads:,} threads", f"{_fmt_dur(elapsed)} elapsed"]
     if waits:
         parts.append(f"{waits} throttle waits")
-    if total_convs and convs >= total_convs:
-        tail = " · wrapping up"
-    elif total_convs and d_convs > 0 and interval > 0:
+    if total_convs and d_convs > 0 and interval > 0:
         rate = d_convs / interval                       # conversations/sec, recent window
-        tail = f" · rough ETA ~{_fmt_dur((total_convs - convs) / rate)} at current pace"
+        tail = f" · gathering messages — rough ETA ~{_fmt_dur((total_convs - convs) / rate)} (then thread replies)"
+    elif d_threads > 0:
+        tail = f" · fetching thread replies ({threads:,} so far; bounded by your time window — no ETA)"
+    elif total_convs and convs >= total_convs:
+        tail = " · finishing up"
     else:
         tail = " · ⚠ crawling on rate-limited threads (no ETA — see --no-threads / --skip-stale)"
     print(f"   ⏳ {what}: " + " · ".join(parts) + tail, flush=True)
@@ -744,7 +746,7 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
     convs: set[str] = set()
     threads = waits = 0
     pos = 0
-    prev_convs = 0
+    prev_convs = prev_threads = 0
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         while True:
@@ -765,8 +767,8 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
             now = time.time()
             if now - last_beat >= 30:
                 _emit_progress(what, now - start, len(convs), threads, waits, total_convs,
-                               len(convs) - prev_convs, now - last_beat)
-                prev_convs, last_beat = len(convs), now
+                               len(convs) - prev_convs, threads - prev_threads, now - last_beat)
+                prev_convs, prev_threads, last_beat = len(convs), threads, now
             if done:
                 break
             time.sleep(3)
@@ -778,7 +780,7 @@ def _run_capture(cmd: list[str], logpath: Path, what: str,
             pass
         rc = 130
     _emit_progress(what, time.time() - start, len(convs), threads, waits, total_convs,
-                   len(convs) - prev_convs, max(1.0, time.time() - last_beat))
+                   len(convs) - prev_convs, threads - prev_threads, max(1.0, time.time() - last_beat))
     return rc, time.time() - start
 
 
