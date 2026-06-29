@@ -88,6 +88,99 @@ def _user_display(u: dict) -> dict:
     }
 
 
+def _rich_text(block: dict) -> str:
+    """Flatten a Block Kit rich_text block into Slack mrkdwn-ish text."""
+    parts: list[str] = []
+
+    def walk(el):
+        if isinstance(el, list):
+            for v in el:
+                walk(v)
+        elif isinstance(el, dict):
+            t = el.get("type")
+            if t == "text" and el.get("text"):
+                parts.append(el["text"])
+            elif t == "link":
+                parts.append(el.get("text") or el.get("url") or "")
+            elif t == "emoji" and el.get("name"):
+                parts.append(f":{el['name']}:")
+            elif t == "user" and el.get("user_id"):
+                parts.append(f"<@{el['user_id']}>")
+            elif t == "channel" and el.get("channel_id"):
+                parts.append(f"<#{el['channel_id']}>")
+            elif t == "broadcast" and el.get("range"):
+                parts.append(f"<!{el['range']}>")
+            for v in (el.get("elements") or []):
+                walk(v)
+
+    walk(block.get("elements") or [])
+    return "".join(parts)
+
+
+def _blocks_text(blocks) -> str:
+    out: list[str] = []
+    for b in blocks or []:
+        if not isinstance(b, dict):
+            continue
+        t = b.get("type")
+        if t in ("section", "header"):
+            txt = b.get("text")
+            if isinstance(txt, dict) and txt.get("text"):
+                out.append(txt["text"])
+            for f in (b.get("fields") or []):
+                if isinstance(f, dict) and f.get("text"):
+                    out.append(f["text"])
+        elif t == "rich_text":
+            rt = _rich_text(b)
+            if rt:
+                out.append(rt)
+        elif t == "context":
+            for e in (b.get("elements") or []):
+                if isinstance(e, dict) and e.get("text"):
+                    out.append(str(e["text"]))
+    return "\n".join(out)
+
+
+def _attachments_text(msg: dict) -> str:
+    """App/bot messages (Jenkins, CI, GitHub…) carry their body in attachments, not text."""
+    chunks: list[str] = []
+    for a in (msg.get("attachments") or []):
+        if not isinstance(a, dict):
+            continue
+        parts: list[str] = []
+        for k in ("pretext", "author_name", "title", "text"):
+            if a.get(k):
+                parts.append(str(a[k]))
+        for f in (a.get("fields") or []):
+            if not isinstance(f, dict):
+                continue
+            title, value = f.get("title"), f.get("value")
+            if title and value:
+                parts.append(f"{title}: {value}")
+            elif value or title:
+                parts.append(str(value or title))
+        nested = _blocks_text(a.get("blocks") or [])
+        if nested:
+            parts.append(nested)
+        if not parts and a.get("fallback"):
+            parts.append(str(a["fallback"]))
+        if parts:
+            chunks.append("\n".join(parts))
+    return "\n\n".join(chunks)
+
+
+def _message_content(msg: dict) -> str:
+    """Full displayable text: the message text, else its Block Kit text, plus any
+    attachment content (so app/bot messages aren't rendered blank)."""
+    content = msg.get("text") or ""
+    if not content:
+        content = _blocks_text(msg.get("blocks") or [])
+    extra = _attachments_text(msg)
+    if extra:
+        content = (content + "\n\n" + extra) if content else extra
+    return content
+
+
 def index_export(export_dir: str | Path, db_path: str | Path, *, verbose: bool = True) -> dict:
     """Index a single export directory (convenience wrapper)."""
     return index_paths([export_dir], db_path, verbose=verbose)
@@ -248,6 +341,7 @@ def _ingest_one(conn, export: Path, files_root: Path, file_index: dict[str, str]
 
     # ---- messages ----  (file_index is shared/prebuilt and covers all roots)
     counts = {"messages": 0, "files": 0, "conversations": 0, "users": len(user_rows)}
+    bot_names: dict[str, str] = {}
     conv_dirs = [d for d in export.iterdir() if d.is_dir() and d.name != "attachments"]
     for cdir in sorted(conv_dirs):
         cid = dir_to_id.get(cdir.name)
@@ -265,9 +359,14 @@ def _ingest_one(conn, export: Path, files_root: Path, file_index: dict[str, str]
                 if not isinstance(msg, dict) or not msg.get("ts"):
                     continue
                 ts = str(msg["ts"])
-                text_raw = msg.get("text") or ""
-                html_out, plain = render(text_raw, user_lookup, channel_lookup)
+                content = _message_content(msg)
+                html_out, plain = render(content, user_lookup, channel_lookup)
                 files = msg.get("files") or []
+                bot_id = msg.get("bot_id")
+                if bot_id and not msg.get("user"):
+                    bname = msg.get("username") or (msg.get("bot_profile") or {}).get("name")
+                    if bname and bot_id not in user_lookup:
+                        bot_names[bot_id] = bname
                 try:
                     epoch = float(ts)
                 except ValueError:
@@ -280,7 +379,7 @@ def _ingest_one(conn, export: Path, files_root: Path, file_index: dict[str, str]
                     "type": msg.get("type") or "message",
                     "subtype": msg.get("subtype"),
                     "epoch": epoch,
-                    "text_raw": text_raw, "text_plain": plain, "html": html_out,
+                    "text_raw": content, "text_plain": plain, "html": html_out,
                     "has_files": 1 if files else 0,
                     "reply_count": int(msg.get("reply_count") or 0),
                     "edited": 1 if msg.get("edited") else 0,
@@ -330,6 +429,13 @@ def _ingest_one(conn, export: Path, files_root: Path, file_index: dict[str, str]
         counts["files"] += len(file_rows)
         if verbose and msg_rows:
             print(f"  + {conv['name'] or cid}: {len(msg_rows)} messages", file=sys.stderr)
+
+    if bot_names:
+        conn.executemany(
+            "INSERT OR IGNORE INTO users(id,name,real_name,display_name,is_bot,deleted) "
+            "VALUES(?,?,?,?,1,0)",
+            [(bid, name, name, name) for bid, name in bot_names.items()],
+        )
 
     conn.executemany(
         """INSERT OR REPLACE INTO conversations

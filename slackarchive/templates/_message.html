@@ -33,7 +33,7 @@
         <span class="msg-author">{{ m.display_name or m.real_name or m.user_name or m.user_id or 'unknown' }}</span>
         <span class="msg-time">{{ m.epoch|dt }}</span>
         {% if m.edited %}<span class="muted">(edited)</span>{% endif %}
-        {% if m.subtype %}<span class="subtype muted">{{ m.subtype }}</span>{% endif %}
+        {% if m.subtype and m.subtype not in ('bot_message', 'thread_broadcast') %}<span class="subtype muted">{{ m.subtype }}</span>{% endif %}
       </div>
       <div class="msg-text">{{ m.html|safe }}</div>
       {{ files_block(m) }}
