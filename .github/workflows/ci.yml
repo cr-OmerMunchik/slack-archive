@@ -14,6 +14,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.9", "3.12"]
+        # Apple-silicon macos-latest has no setup-python 3.9 build; 3.9 is still
+        # covered on Linux + Windows, and macOS is covered on 3.12.
+        exclude:
+          - os: macos-latest
+            python: "3.9"
     steps:
       - uses: actions/checkout@v4
 
