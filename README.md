@@ -36,8 +36,7 @@ powershell -ExecutionPolicy Bypass -File .\setup.ps1
 
 # 2. Back up your Slack history. Opens a browser to log in, then interactively lets you
 #    pick channels, choose whether to include attachments, and how far back (default 6 months).
-.\backup.ps1 -Enterprise -Pick                # Slack Enterprise Grid (e.g. Cybereason)
-.\backup.ps1 -Pick                             # non-Grid workspaces
+.\backup.ps1 -Enterprise -Pick                # -Enterprise is required on Slack Enterprise Grid (e.g. Cybereason)
 
 # 3. Build the search index and open the search UI in your browser
 .\search.ps1
@@ -47,8 +46,7 @@ powershell -ExecutionPolicy Bypass -File .\setup.ps1
 
 ```bash
 ./setup.sh                                     # one-time setup
-./backup.sh --enterprise --pick                # log in, then pick channels + attachments + how far back
-./backup.sh --pick                             # non-Grid workspaces
+./backup.sh --enterprise --pick                # --enterprise is required on Slack Enterprise Grid (e.g. Cybereason)
 ./search.sh                                    # builds the index and opens the browser
 ```
 
