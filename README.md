@@ -31,16 +31,21 @@ Everything else (the `slackdump` binary, the Python packages) is fetched automat
 ### Windows (PowerShell)
 
 ```powershell
-# 1. One-time setup: downloads slackdump, sets up Python + dependencies
-powershell -ExecutionPolicy Bypass -File .\setup.ps1
+# 1. One-time: allow PowerShell to run local scripts (per-user, no admin). Answer Y if prompted.
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
-# 2. Back up your Slack history. Opens a browser to log in, then interactively lets you
+# 2. One-time setup: downloads slackdump, sets up Python + dependencies
+.\setup.ps1
+
+# 3. Back up your Slack history. Opens a browser to log in, then interactively lets you
 #    pick channels, choose whether to include attachments, and how far back (default 6 months).
 .\backup.ps1 -Enterprise -Pick                # -Enterprise is required on Slack Enterprise Grid (e.g. Cybereason)
 
-# 3. Build the search index and open the search UI in your browser
+# 4. Build the search index and open the search UI in your browser
 .\search.ps1
 ```
+
+> **Locked-down machine?** If your IT policy blocks `Set-ExecutionPolicy`, run each script with the bypass form instead — e.g. `powershell -ExecutionPolicy Bypass -File .\setup.ps1` — which changes no system setting.
 
 ### macOS / Linux
 
@@ -212,6 +217,7 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 | **Huge workspace / slow / rate-limited** | Normal — Slack throttles thread fetches. The archive is **resumable**: stop and re-run `backup` to continue, and repeat runs are incremental. Use `-NoFiles` / `--no-files` to skip attachments. |
 | **ETA keeps climbing / stuck fetching threads** | Slack throttles thread *replies* to a crawl — full thread history can be impractically slow. Finish now with `-NoThreads` / `--no-threads` (skips remaining thread replies; keeps all messages + threads already saved), or grab just recent ones with `-SkipStale p30d` / `--skip-stale p30d`. |
 | **Windows blocks slackdump.exe** | Setup already unblocks it; if prompted, choose *More info → Run anyway*. |
+| **`running scripts is disabled on this system` (PowerShell)** | Allow local scripts once (per-user, no admin): `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. If IT policy blocks that, run scripts as `powershell -ExecutionPolicy Bypass -File .\setup.ps1`. Downloaded a ZIP instead of `git clone`? also run `Get-ChildItem *.ps1 \| Unblock-File`. |
 
 ---
 
