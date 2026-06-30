@@ -46,8 +46,6 @@ powershell -ExecutionPolicy Bypass -File .\setup.ps1
 ### macOS / Linux
 
 ```bash
-chmod +x setup.sh backup.sh search.sh
-
 ./setup.sh                                     # one-time setup
 ./backup.sh --enterprise --pick                # log in, then pick channels + attachments + how far back
 ./backup.sh --pick                             # non-Grid workspaces
