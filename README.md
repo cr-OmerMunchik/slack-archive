@@ -4,6 +4,8 @@
 
 Built for the situation where your company is leaving Slack (e.g. migrating to Microsoft Teams) and you don't want to lose the conversations, decisions, and links that live in your message history.
 
+📋 **What's new:** see the [Changelog](CHANGELOG.md) or the [Releases page](https://github.com/cr-OmerMunchik/slack-archive/releases).
+
 - 🔒 **Private & local**: your data is downloaded to *your* machine and never leaves it.
 - 🔎 **Real full-text search**: fast SQLite FTS5 with ranked results, highlighted snippets, and filters by conversation, person, type, and date.
 - 🧵 **Reads like Slack**: threads, @mentions, links, code blocks, inline images and file attachments.
