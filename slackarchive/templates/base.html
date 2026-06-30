@@ -27,6 +27,7 @@
       {% if stats.indexed_at %}<span>indexed {{ stats.indexed_at[:10] }}</span>{% endif %}
     {% endif %}
     <span class="muted">offline · local only</span>
+    {% if version %}<span class="muted">slack-archive v{{ version }}</span>{% endif %}
   </footer>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>

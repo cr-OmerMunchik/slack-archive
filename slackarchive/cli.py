@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -13,6 +14,8 @@ import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from . import __version__
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
@@ -369,6 +372,51 @@ def _report_estimate(export_dir: Path, archive_dir: Path) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# attachment pruning (--max-file-size / --prune-attachments)
+# --------------------------------------------------------------------------- #
+def _load_prune_patterns(path: str | Path) -> list[str]:
+    """Read glob patterns (one per line; # comments allowed) from a config file."""
+    pats: list[str] = []
+    p = Path(path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line:
+                pats.append(line)
+    return pats
+
+
+def _prune_attachments(archive_dir: str | Path, max_bytes: int | None = None,
+                       patterns: list[str] | None = None) -> dict:
+    """Delete already-downloaded attachments under the archive's __uploads that are
+    larger than max_bytes or whose filename matches any glob in patterns (case-insensitive).
+    Returns {'removed': N, 'bytes_freed': B}. Note: slackdump downloads files first; this
+    prunes afterward, so it reclaims disk but not download time."""
+    patterns = patterns or []
+    uploads = Path(archive_dir) / "__uploads"
+    removed, freed = 0, 0
+    if not uploads.exists():
+        return {"removed": 0, "bytes_freed": 0}
+    for f in uploads.rglob("*"):
+        if not f.is_file():
+            continue
+        try:
+            size = f.stat().st_size
+        except OSError:
+            continue
+        too_big = max_bytes is not None and size > max_bytes
+        matched = any(fnmatch.fnmatch(f.name.lower(), pat.lower()) for pat in patterns)
+        if too_big or matched:
+            try:
+                f.unlink()
+                removed += 1
+                freed += size
+            except OSError:
+                pass
+    return {"removed": removed, "bytes_freed": freed}
+
+
+# --------------------------------------------------------------------------- #
 # commands
 # --------------------------------------------------------------------------- #
 def cmd_backup(args: argparse.Namespace) -> int:
@@ -492,11 +540,45 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
     _print_capture_banner(resuming, logpath)
     rc, elapsed, processed = _run_capture(capture, logpath, "Resume" if resuming else "Archive", total_convs)
+
+    # Auto-resume on transient capture failures (common on long / --all-time runs):
+    # slackdump is resumable, so re-run `resume` a bounded number of times with backoff.
+    attempt = 0
+    while rc != 0 and attempt < args.retries and (archive_dir / "slackdump.sqlite").exists():
+        attempt += 1
+        wait = 15 * attempt
+        print(f"\nslackdump exited with code {rc} after {_fmt_dur(elapsed)}. "
+              f"This is usually a transient network/API error on a long run. "
+              f"Auto-resuming in {wait}s (attempt {attempt} of {args.retries}); press Ctrl+C to stop.",
+              file=sys.stderr)
+        time.sleep(wait)
+        resume_flags = [] if args.no_threads else ["-threads", "-skip-complete-threads"]
+        if args.skip_stale and not args.no_threads:
+            resume_flags += ["-skip-stale-threads", args.skip_stale]
+        resume_cmd = [sd, "resume"] + resume_flags + [files_flag] + flags + [str(archive_dir)]
+        _print_capture_banner(True, logpath)
+        rc, elapsed, processed = _run_capture(resume_cmd, logpath, "Resume", total_convs)
+
     if rc != 0:
         print(f"\nslackdump exited with code {rc} after {_fmt_dur(elapsed)}. "
               "Re-run backup to resume where it stopped.", file=sys.stderr)
         return rc
     print(f"\n✓ Capture finished in {_fmt_dur(elapsed)}.")
+
+    # Optional attachment pruning to reclaim disk. slackdump downloads files first, so this
+    # trims afterward (saves disk, not download time). Skipped when files weren't downloaded.
+    if include_files and (args.max_file_size is not None or args.prune_attachments):
+        max_bytes = int(args.max_file_size * 1024 * 1024) if args.max_file_size is not None else None
+        patterns = _load_prune_patterns(args.prune_attachments) if args.prune_attachments else []
+        if max_bytes is not None or patterns:
+            print("Pruning attachments per your rules ...")
+            stats = _prune_attachments(archive_dir, max_bytes, patterns)
+            extra = ""
+            if max_bytes is not None:
+                extra += f"  (size limit {args.max_file_size:g} MB)"
+            if patterns:
+                extra += f"  (patterns: {', '.join(patterns)})"
+            print(f"  removed {stats['removed']:,} file(s), freed ~{_human_size(stats['bytes_freed'])}{extra}")
 
     print("Converting the archive into a searchable export ...")
     if export_dir.exists():
@@ -887,6 +969,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="slackarchive",
         description="Back up your Slack history with slackdump and search it locally in your browser.",
     )
+    p.add_argument("--version", action="version", version=f"slack-archive {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
     pb = sub.add_parser("backup", help="export your Slack history via slackdump")
@@ -906,6 +989,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="dry run for disk size: capture message metadata only (no file downloads) "
                          "and report estimated space, then stop. The archive stays resumable.")
     pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
+    pb.add_argument("--retries", type=int, default=2, metavar="N",
+                    help="auto-resume up to N times if slackdump fails mid-capture (transient errors on long runs; default 2; 0 disables)")
+    pb.add_argument("--max-file-size", type=float, default=None, metavar="MB",
+                    help="after download, delete attachments larger than MB (reclaims disk)")
+    pb.add_argument("--prune-attachments", metavar="FILE",
+                    help="file of glob patterns (e.g. 'Sensor*.exe', '*.db'); matching attachments are deleted after download")
     pb.add_argument("--no-pacing", action="store_true", help="don't apply the gentle API-pacing config (use slackdump defaults)")
     pb.add_argument("--no-threads", action="store_true", help="on resume, skip fetching thread replies (fast finish; keeps threads already saved)")
     pb.add_argument("--skip-stale", metavar="DURATION", help="on resume, skip threads with no replies in DURATION (e.g. p30d, p8w) to finish faster")

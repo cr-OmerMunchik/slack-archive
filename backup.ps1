@@ -5,6 +5,7 @@
     .\backup.ps1 -Enterprise                      # everything you're in
     .\backup.ps1 -Enterprise -NoFiles             # text only - skip attachments (much smaller)
     .\backup.ps1 -Enterprise -Pick -Estimate      # estimate disk size only (no downloads), then stop
+    .\backup.ps1 -Enterprise -MaxFileSize 50      # drop attachments larger than 50 MB after download
     .\backup.ps1 -Enterprise -Fresh               # start a new archive instead of resuming
     .\backup.ps1 -DryRun                          # show the commands, don't run
 
@@ -19,6 +20,9 @@ param(
   [switch]$NoFiles,
   [switch]$Estimate,
   [switch]$Fresh,
+  [int]$Retries,
+  [double]$MaxFileSize,
+  [string]$PruneAttachments,
   [switch]$NoPacing,
   [switch]$NoThreads,
   [string]$SkipStale,
@@ -43,6 +47,9 @@ if ($NoChannelsFile) { $cargs += "--no-channels-file" }
 if ($NoFiles)        { $cargs += "--no-files" }
 if ($Estimate)       { $cargs += "--estimate" }
 if ($Fresh)          { $cargs += "--fresh" }
+if ($PSBoundParameters.ContainsKey('Retries'))     { $cargs += @("--retries", $Retries) }
+if ($PSBoundParameters.ContainsKey('MaxFileSize')) { $cargs += @("--max-file-size", $MaxFileSize) }
+if ($PruneAttachments)                             { $cargs += @("--prune-attachments", $PruneAttachments) }
 if ($NoPacing)       { $cargs += "--no-pacing" }
 if ($NoThreads)      { $cargs += "--no-threads" }
 if ($SkipStale)      { $cargs += @("--skip-stale", $SkipStale) }

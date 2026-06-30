@@ -1,0 +1,13 @@
+# attachments.example.txt: glob patterns for files to DROP from a backup.
+# Pass this file with:  --prune-attachments attachments.txt  (or -PruneAttachments on Windows)
+#
+# One glob per line. Matched against the file name only, case-insensitive.
+# Lines starting with # are comments; blank lines are ignored.
+# slackdump downloads attachments first, then matching files are deleted from
+# data/archive/__uploads, so this reclaims disk (not download time).
+#
+# Examples:
+# *.exe            # installers / binaries
+# Sensor*          # anything starting with "Sensor"
+# *.db             # database dumps
+# *.mp4            # videos

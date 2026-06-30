@@ -105,6 +105,30 @@ Because the archive is **resumable**, nothing is wasted: if the number looks fin
 
 > `--estimate` still crawls your message history (the slow, rate-limited part), so it isn't instant, but it skips the large file downloads, so it's much faster than a full backup, and the result is accurate.
 
+### Limiting attachment size and type 🧹
+
+If a few huge files or certain file types are the problem, you can keep them out of the backup:
+
+```powershell
+.\backup.ps1 -Enterprise -MaxFileSize 50                          # drop attachments larger than 50 MB
+.\backup.ps1 -Enterprise -PruneAttachments .\attachments.txt      # drop files matching glob patterns
+```
+```bash
+./backup.sh --enterprise --max-file-size 50
+./backup.sh --enterprise --prune-attachments ./attachments.txt
+```
+
+`--prune-attachments` takes a file of glob patterns, one per line (`#` comments allowed). See `attachments.example.txt`:
+
+```
+# attachments to drop (matched against the file name, case-insensitive)
+*.exe
+Sensor*
+*.db
+```
+
+> **How it works:** slackdump always downloads attachments first, then this trims them from `data/archive/__uploads`. So it reclaims **disk**, but not download time. Combine it with `--estimate` to see the size first, or `--no-files` to skip attachments entirely.
+
 ### Recommended: the interactive picker (`-Pick`)
 
 This is the easiest way to back up, and what the Quickstart uses. Add `-Pick` / `--pick` to `backup` and it walks you through everything in the terminal, which channels, whether to include attachments, and how far back, no files to edit:
@@ -212,7 +236,7 @@ Three decoupled stages:
 
 Just run `backup` again, it **resumes/append-updates** your existing archive (only fetching new messages, and skipping threads it already has in full, which keeps it fast and avoids most rate-limiting). Then re-index: `search.ps1 -Reindex` / `./search.sh --reindex`.
 
-- **Stopped halfway?** Safe, re-run `backup` and it continues from where it stopped.
+- **Stopped halfway?** Safe, re-run `backup` and it continues from where it stopped. On a long run, a transient network/API error can make slackdump exit early; `backup` now **auto-resumes** up to 2 times before giving up (tune with `-Retries N` / `--retries N`, or `0` to disable).
 - **Want to change your channel selection?** Run `backup -Fresh` / `--fresh` to start a new archive.
 - **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only, drops the size dramatically. To see the size *before* downloading, use `-Estimate` / `--estimate` (see *"Not sure how big it'll be?"* above).
 - **Watching it run?** The console stays quiet on purpose: a progress line with a **rough ETA** prints every ~30s, and full slackdump logs go to `data/last-backup.log`. Requests are paced gently via `slackdump.gentle.toml` (this can't beat Slack's limits, it just reduces retry churn; `--no-pacing` uses slackdump defaults).

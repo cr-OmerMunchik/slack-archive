@@ -38,6 +38,10 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
   `--estimate` (alias `--get-size`) = dry run for disk size: forces metadata-only capture (no file
   downloads), then indexes into a throwaway db and reports message count + summed attachment `size`
   (deduped by file id) + current on-disk text size; leaves the archive resumable. See `_report_estimate`.
+  `--retries N` (default 2) = auto-resume: if slackdump exits non-zero mid-capture, re-run `resume` up
+  to N times with backoff (handles transient errors on long/`--all-time` runs). `--max-file-size MB`
+  and `--prune-attachments FILE` (glob patterns) delete attachments after download to reclaim disk
+  (see `_prune_attachments`; slackdump downloads first, so this saves disk not download time).
 - `pick-channels`, write an editable `channels.txt`; `find-channels <kw>`, search public channels by name
 - `index`, build `data/search.db` from `data/export`; resolves attachments from `data/archive`
 - `serve`, Flask UI on `127.0.0.1:8731`

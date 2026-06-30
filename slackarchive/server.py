@@ -16,6 +16,7 @@ from flask import (
     Flask, abort, g, render_template, request, send_from_directory, url_for,
 )
 
+from . import __version__
 from . import db as dbmod
 
 PAGE_SIZE = 25
@@ -33,6 +34,10 @@ TYPE_BADGES = {
 def create_app(db_path: str) -> Flask:
     app = Flask(__name__)
     app.config["DB_PATH"] = db_path
+
+    @app.context_processor
+    def _inject_version():
+        return {"version": __version__}
 
     # ---- per-request DB connection ----
     def get_db():
