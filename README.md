@@ -206,6 +206,7 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 |---|---|
 | **`auth error` / nothing exports** | You're not logged in. Run `backup` again — it launches the login. On Enterprise Grid, add `-Enterprise` / `--enterprise`. |
 | **Login window won't complete (SSO/Okta)** | Re-run and choose **QR Code**, scan with the Slack mobile app. |
+| **Login browser closes instantly / `target navigated or closed` (Windows)** | slackdump drives Microsoft Edge for the login. **Fully quit Edge first** — close every window, then end any stray `msedge.exe` in Task Manager — and re-run. The error is a stale Edge automation target, not a problem with your login. |
 | **"Sign in with Google" workspace** | Choose **QR Code** or **User Browser** at the login-method prompt. |
 | **Enterprise Grid** | Always pass `-Enterprise` (Windows) / `--enterprise` (macOS/Linux). |
 | **`sqlite3 was built without FTS5`** | Use a python.org build of Python (its bundled SQLite includes FTS5), then re-run setup. |

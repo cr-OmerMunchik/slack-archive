@@ -11,6 +11,7 @@ venv/
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
 
 # slackdump stray outputs (in case anyone runs it from the repo root)
 channels-*.txt
