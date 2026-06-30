@@ -11,7 +11,7 @@
   </div>
   {% if conv.topic %}<p class="conv-topic muted">{{ conv.topic }}</p>{% endif %}
 
-  {% if anchor %}<p class="context-note muted">Showing context around your search result — <a href="{{ url_for('conversation', conv_id=conv.id) }}">view from the top</a>.</p>{% endif %}
+  {% if anchor %}<p class="context-note muted">Showing context around your search result, <a href="{{ url_for('conversation', conv_id=conv.id) }}">view from the top</a>.</p>{% endif %}
 
   <div class="messages">
     {% set ns = namespace(last_day='') %}

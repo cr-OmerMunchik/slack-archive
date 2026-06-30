@@ -1,6 +1,6 @@
 # Contributing to slack-archive
 
-Thanks for helping out! This is a small, focused tool — back up your own Slack
+Thanks for helping out! This is a small, focused tool, back up your own Slack
 history and search it locally. Bug reports, docs fixes, and PRs are all welcome.
 macOS testing and anything that smooths out first-run setup are especially valued.
 
@@ -23,7 +23,7 @@ cd slack-archive
 .venv/bin/python -m pytest          # Windows: .venv\Scripts\python.exe -m pytest
 ```
 
-The suite is offline and fast — it never calls slackdump or the network. It
+The suite is offline and fast, it never calls slackdump or the network. It
 covers the rendering, storage/search, ingest, and CLI-helper layers. Tests that
 need SQLite FTS5 skip automatically if your Python build lacks it. CI runs the
 same suite on Linux, macOS, and Windows for Python 3.9 and 3.12.
@@ -55,8 +55,8 @@ by every platform:
   downloaded `bin/`, `.venv/`, `channels.txt`, and `workspace.txt` is git-ignored
   and must stay that way. Don't paste real tokens, cookies, or private message
   content into issues or PRs.
-- **Match the surrounding style** — the code favours small, well-commented functions.
-- **Keep it self-contained and offline** — the tool makes no outbound calls beyond
+- **Match the surrounding style**: the code favours small, well-commented functions.
+- **Keep it self-contained and offline**: the tool makes no outbound calls beyond
   Slack (via slackdump) during a backup; the search UI is localhost-only.
 
 ## Submitting changes

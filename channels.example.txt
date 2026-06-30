@@ -1,4 +1,4 @@
-# channels.example.txt — template for channels.txt
+# channels.example.txt, template for channels.txt
 #
 # `backup` reads channels.txt (this file is just the committed example).
 # The easiest way to create channels.txt is to run the picker, which lists every

@@ -84,7 +84,7 @@ info "Using Python: $PY"
 # --- 3. virtualenv + deps --------------------------------------------------
 VENV="$ROOT/.venv"
 # (Re)create the venv if it's missing OR broken (a venv without pip happens when
-# python3-venv wasn't installed at creation time — common on fresh Ubuntu).
+# python3-venv wasn't installed at creation time, common on fresh Ubuntu).
 if [ ! -x "$VENV/bin/python" ] || ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
   info "Creating virtual environment (.venv) ..."
   rm -rf "$VENV"

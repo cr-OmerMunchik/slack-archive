@@ -7,7 +7,7 @@
 # throttle window is ridden out instead of failing an item.
 #
 # IMPORTANT: this only paces *our* side. It cannot raise Slack's server-side limits,
-# so it does not make a throttled backup finish faster — it just makes it quieter and
+# so it does not make a throttled backup finish faster, it just makes it quieter and
 # politer. Tune freely; `slackdump config check <file>` validates it.
 
 workers = 3

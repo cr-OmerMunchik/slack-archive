@@ -214,7 +214,7 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
 
     include_files = True
     try:
-        print(f"\nYou belong to {len(your_named)} channel(s) — all pre-selected. "
+        print(f"\nYou belong to {len(your_named)} channel(s), all pre-selected. "
               f"{len(directory):,} more public channels are available.")
         print("Search by name to add public channels, or to find one of yours and untick it.")
         while True:
@@ -233,7 +233,7 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
                     print(f"  no channels match '{kw}'.")
                     continue
                 if len(matches) > 100:
-                    print(f"  {len(matches)} matches — showing the first 100; refine to narrow.")
+                    print(f"  {len(matches)} matches, showing the first 100; refine to narrow.")
                     matches = matches[:100]
                 choices = [questionary.Choice(title=f"#{n}", value=i, checked=(i in selected))
                            for (n, i) in matches]
@@ -345,14 +345,14 @@ def _estimate_numbers(export_dir: Path, archive_dir: Path) -> dict:
 def _report_estimate(export_dir: Path, archive_dir: Path) -> int:
     """Print a disk-space estimate from a metadata-only capture and exit."""
     if not export_dir.exists() or not any(export_dir.iterdir()):
-        print("\nNo messages were captured in this time window — nothing to size.")
+        print("\nNo messages were captured in this time window, nothing to size.")
         return 0
     print("\nMeasuring sizes from the captured metadata (no files were downloaded) ...")
     n = _estimate_numbers(export_dir, archive_dir)
     total_with = n["text_bytes"] + n["attachment_bytes"]
     bar = "-" * 64
     print("\n" + bar)
-    print("SIZE ESTIMATE  (metadata only — no attachments were downloaded)")
+    print("SIZE ESTIMATE  (metadata only, no attachments were downloaded)")
     print(bar)
     print(f"  Messages:                          {n['messages']:,} across {n['conversations']:,} conversation(s)")
     print(f"  Text + metadata on disk now:       ~{_human_size(n['text_bytes'])}")
@@ -362,8 +362,8 @@ def _report_estimate(export_dir: Path, archive_dir: Path) -> int:
     print(bar)
     print("\nThe archive is resumable, so nothing here is wasted:")
     print("  • Include the attachments: re-run the same backup WITHOUT --estimate")
-    print("    (it resumes and only downloads the files — it won't re-crawl history).")
-    print("  • Keep it text-only: build the search index now —")
+    print("    (it resumes and only downloads the files, it won't re-crawl history).")
+    print("  • Keep it text-only: build the search index now:")
     print("      python -m slackarchive index    (then: python -m slackarchive serve)")
     return 0
 
@@ -386,7 +386,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
     channels: list[str] = []
 
     if resuming:
-        print(f"Found an existing archive at {archive_dir} — resuming it (incremental update).")
+        print(f"Found an existing archive at {archive_dir}, resuming it (incremental update).")
         print("The channel set comes from the archive; use --fresh to choose a new set.\n")
     else:
         if args.pick:
@@ -403,7 +403,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
             if not args.no_channels_file:
                 channels += _read_channel_tokens(Path(args.channels_file))
 
-    # Time window — the key lever that makes big channels finishable. Default: last 6 months.
+    # Time window, the key lever that makes big channels finishable. Default: last 6 months.
     # Interactive picker asks; --all-time / --since / --months override.
     if args.all_time:
         time_from = None
@@ -420,7 +420,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
         # --estimate is a metadata-only dry run: capture message/file metadata (file
         # sizes included) but never download attachments, then report the size.
         include_files = False
-        print("\nEstimate mode: capturing message metadata only — no attachments are downloaded.")
+        print("\nEstimate mode: capturing message metadata only, no attachments are downloaded.")
         print("(This still crawls history, so it isn't instant; but it skips the large file downloads.)")
 
     files_flag = "-files" if include_files else "-files=false"
@@ -437,9 +437,9 @@ def cmd_backup(args: argparse.Namespace) -> int:
     if args.yes:
         flags.append("-y")
     if time_from:
-        print(f"Time window: messages since {time_from[:10]} (older history is skipped — keeps it fast & small).")
+        print(f"Time window: messages since {time_from[:10]} (older history is skipped, keeps it fast & small).")
     else:
-        print("Time window: ALL history (no date limit — this can be very large and slow).")
+        print("Time window: ALL history (no date limit, this can be very large and slow).")
 
     # IMPORTANT: slackdump treats anything AFTER the positional <archive>/<links> as channel
     # LINKS, so every flag must come BEFORE the archive path (resume) and before links (archive).
@@ -480,7 +480,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
         if listing:
             total_convs = sum(1 for c in listing if isinstance(c, dict) and c.get("id")) or None
 
-    # Filesystem changes happen only now — never on --dry-run: a fresh wipe + ensure dirs.
+    # Filesystem changes happen only now, never on --dry-run: a fresh wipe + ensure dirs.
     if not resuming and args.fresh and archive_dir.exists():
         shutil.rmtree(archive_dir, ignore_errors=True)
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -794,7 +794,7 @@ def _print_capture_banner(resuming: bool, logpath: Path) -> None:
     bar = "-" * 68
     print("\n" + bar)
     print(("Resuming" if resuming else "Capturing") + " your Slack history into the archive.")
-    print("  - Paced gently; can be slow — Slack throttles thread history hard.")
+    print("  - Paced gently; can be slow, Slack throttles thread history hard.")
     print("  - The console is kept quiet on purpose. A progress line with a ROUGH ETA")
     print("    prints every ~30s. Full slackdump logs stream to:")
     print(f"      {logpath}")
@@ -818,21 +818,21 @@ def _read_new_lines(path: Path, pos: int) -> tuple[int, list[str]]:
 def _emit_progress(what: str, elapsed: float, convs: int, threads: int, waits: int,
                    total_convs: int | None, d_convs: int, d_threads: int, interval: float) -> None:
     """Honest progress line. A capture has two phases: (1) gathering each conversation's
-    messages — we can give a rough ETA from recent conversation rate; (2) fetching thread
-    replies — there's no known total, so we report progress, not a fake ETA."""
+    messages, we can give a rough ETA from recent conversation rate; (2) fetching thread
+    replies, there's no known total, so we report progress, not a fake ETA."""
     parts = [f"~{convs}/{total_convs} conversations" if total_convs else f"{convs} conversations",
              f"{threads:,} threads", f"{_fmt_dur(elapsed)} elapsed"]
     if waits:
         parts.append(f"{waits} throttle waits")
     if total_convs and d_convs > 0 and interval > 0:
         rate = d_convs / interval                       # conversations/sec, recent window
-        tail = f" · gathering messages — rough ETA ~{_fmt_dur((total_convs - convs) / rate)} (then thread replies)"
+        tail = f" · gathering messages, rough ETA ~{_fmt_dur((total_convs - convs) / rate)} (then thread replies)"
     elif d_threads > 0:
-        tail = f" · fetching thread replies ({threads:,} so far; bounded by your time window — no ETA)"
+        tail = f" · fetching thread replies ({threads:,} so far; bounded by your time window, no ETA)"
     elif total_convs and convs >= total_convs:
         tail = " · finishing up"
     else:
-        tail = " · ⚠ crawling on rate-limited threads (no ETA — see --no-threads / --skip-stale)"
+        tail = " · ⚠ crawling on rate-limited threads (no ETA, see --no-threads / --skip-stale)"
     print(f"   ⏳ {what}: " + " · ".join(parts) + tail, flush=True)
 
 
@@ -900,7 +900,7 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--no-channels-file", action="store_true", help="ignore channels.txt")
     pb.add_argument("--months", type=int, default=None, help="back up messages from the last N months (default: 6; the interactive picker asks)")
     pb.add_argument("--since", metavar="YYYY-MM-DD", help="back up messages on/after this date (overrides --months)")
-    pb.add_argument("--all-time", action="store_true", help="no date limit — back up ALL history (can be huge/slow)")
+    pb.add_argument("--all-time", action="store_true", help="no date limit, back up ALL history (can be huge/slow)")
     pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
     pb.add_argument("--estimate", "--get-size", dest="estimate", action="store_true",
                     help="dry run for disk size: capture message metadata only (no file downloads) "

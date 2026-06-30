@@ -1,15 +1,15 @@
 # 🗄️ slack-archive
 
-**Back up your own Slack history — DMs, group chats, private & public channels, and file attachments — to your computer, and search it in your browser. Fully offline. No admin rights needed.**
+**Back up your own Slack history, DMs, group chats, private & public channels, and file attachments, to your computer, and search it in your browser. Fully offline. No admin rights needed.**
 
 Built for the situation where your company is leaving Slack (e.g. migrating to Microsoft Teams) and you don't want to lose the conversations, decisions, and links that live in your message history.
 
-- 🔒 **Private & local** — your data is downloaded to *your* machine and never leaves it.
-- 🔎 **Real full-text search** — fast SQLite FTS5 with ranked results, highlighted snippets, and filters by conversation, person, type, and date.
-- 🧵 **Reads like Slack** — threads, @mentions, links, code blocks, inline images and file attachments.
-- 💻 **Cross-platform** — Windows, macOS, Linux. One setup script handles all dependencies.
-- 🙅 **No admin / no app approval** — uses [`slackdump`](https://github.com/rusq/slackdump) with your normal Slack login.
-- ⏯️ **Resumable & incremental** — captures the last 6 months by default (configurable); stop and re-run anytime to continue, and routine backups only fetch what's new.
+- 🔒 **Private & local**: your data is downloaded to *your* machine and never leaves it.
+- 🔎 **Real full-text search**: fast SQLite FTS5 with ranked results, highlighted snippets, and filters by conversation, person, type, and date.
+- 🧵 **Reads like Slack**: threads, @mentions, links, code blocks, inline images and file attachments.
+- 💻 **Cross-platform**: Windows, macOS, Linux. One setup script handles all dependencies.
+- 🙅 **No admin / no app approval**: uses [`slackdump`](https://github.com/rusq/slackdump) with your normal Slack login.
+- ⏯️ **Resumable & incremental**: captures the last 6 months by default (configurable); stop and re-run anytime to continue, and routine backups only fetch what's new.
 
 > You can only back up what *you* can already see in Slack. This is your own history, saved for your own reference.
 
@@ -18,7 +18,7 @@ Built for the situation where your company is leaving Slack (e.g. migrating to M
 ## Requirements
 
 - **Windows, macOS, or Linux.**
-- **Python 3.9+** — the setup script installs it for you if it's missing (via winget / Homebrew / your package manager).
+- **Python 3.9+**: the setup script installs it for you if it's missing (via winget / Homebrew / your package manager).
   - On **Debian/Ubuntu**, make sure venv + pip are present first: `sudo apt install -y python3 python3-venv python3-pip`.
 - An internet connection for the one-time download of the `slackdump` binary.
 
@@ -45,7 +45,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 .\search.ps1
 ```
 
-> **Locked-down machine?** If your IT policy blocks `Set-ExecutionPolicy`, run each script with the bypass form instead — e.g. `powershell -ExecutionPolicy Bypass -File .\setup.ps1` — which changes no system setting.
+> **Locked-down machine?** If your IT policy blocks `Set-ExecutionPolicy`, run each script with the bypass form instead, e.g. `powershell -ExecutionPolicy Bypass -File .\setup.ps1`, which changes no system setting.
 
 ### macOS / Linux
 
@@ -57,7 +57,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 That's it. The search UI runs at **http://localhost:8731** and only listens on your own machine.
 
-> **Logging in:** the backup step opens a browser window. Pick **Interactive** when asked for a login method (works with SSO/Okta/password). If your company uses *Sign in with Google*, choose **QR Code** and scan it with the Slack app on your phone. Your workspace name is the part before `.slack.com` — to find it, right-click any message in Slack → *Copy link*. The backup uses a **default workspace**, so you usually don't need to enter it; override with `-Workspace <name>` / `--workspace <name>`, a local `workspace.txt`, or the `SLACK_ARCHIVE_WORKSPACE` env var.
+> **Logging in:** the backup step opens a browser window. Pick **Interactive** when asked for a login method (works with SSO/Okta/password). If your company uses *Sign in with Google*, choose **QR Code** and scan it with the Slack app on your phone. Your workspace name is the part before `.slack.com`, to find it, right-click any message in Slack → *Copy link*. The backup uses a **default workspace**, so you usually don't need to enter it; override with `-Workspace <name>` / `--workspace <name>`, a local `workspace.txt`, or the `SLACK_ARCHIVE_WORKSPACE` env var.
 
 ---
 
@@ -67,7 +67,7 @@ By default, `backup` saves **every conversation you belong to**: direct messages
 
 ### How far back (time window)
 
-This is the key to a backup that actually **finishes**. Slack throttles thread history hard, so grabbing *all of time* on big channels can take days. By default `backup` captures the **last 6 months** — the interactive picker asks, and you can set it explicitly:
+This is the key to a backup that actually **finishes**. Slack throttles thread history hard, so grabbing *all of time* on big channels can take days. By default `backup` captures the **last 6 months**: the interactive picker asks, and you can set it explicitly:
 
 ```powershell
 .\backup.ps1 -Enterprise -Months 12      # last 12 months
@@ -78,11 +78,11 @@ This is the key to a backup that actually **finishes**. Slack throttles thread h
 ./backup.sh --enterprise --months 12   # or --since 2025-01-01  /  --all-time
 ```
 
-A longer window means **much more time and disk** — start modest; you can always widen it later (re-run with a larger window).
+A longer window means **much more time and disk**: start modest; you can always widen it later (re-run with a larger window).
 
 ### Not sure how big it'll be? Estimate first 📏
 
-Attachments — not text — are what fill the disk, and Slack has no "how big is this channel" API, so the only way to know is to read the file sizes recorded inside your history. **`--estimate`** (alias `--get-size`) does exactly that: it captures **message metadata only — no files are downloaded** — then reports how much space the attachments *would* take.
+Attachments, not text, are what fill the disk, and Slack has no "how big is this channel" API, so the only way to know is to read the file sizes recorded inside your history. **`--estimate`** (alias `--get-size`) does exactly that: it captures **message metadata only, no files are downloaded**: then reports how much space the attachments *would* take.
 
 ```powershell
 .\backup.ps1 -Enterprise -Pick -Estimate     # Windows
@@ -94,7 +94,7 @@ Attachments — not text — are what fill the disk, and Slack has no "how big i
 It prints something like:
 
 ```
-SIZE ESTIMATE  (metadata only — no attachments were downloaded)
+SIZE ESTIMATE  (metadata only, no attachments were downloaded)
   Messages:                          12,431 across 87 conversation(s)
   Text + metadata on disk now:       ~28.4 MB
   Attachments (NOT downloaded yet):  1,902 files, ~3.7 GB
@@ -103,21 +103,21 @@ SIZE ESTIMATE  (metadata only — no attachments were downloaded)
 
 Because the archive is **resumable**, nothing is wasted: if the number looks fine, re-run the **same** backup *without* `--estimate` and it just downloads the files (it won't re-crawl history). If it's too big, stay text-only with `--no-files`.
 
-> `--estimate` still crawls your message history (the slow, rate-limited part), so it isn't instant — but it skips the large file downloads, so it's much faster than a full backup, and the result is accurate.
+> `--estimate` still crawls your message history (the slow, rate-limited part), so it isn't instant, but it skips the large file downloads, so it's much faster than a full backup, and the result is accurate.
 
 ### Recommended: the interactive picker (`-Pick`)
 
-This is the easiest way to back up, and what the Quickstart uses. Add `-Pick` / `--pick` to `backup` and it walks you through everything in the terminal — which channels, whether to include attachments, and how far back — no files to edit:
+This is the easiest way to back up, and what the Quickstart uses. Add `-Pick` / `--pick` to `backup` and it walks you through everything in the terminal, which channels, whether to include attachments, and how far back, no files to edit:
 
 ```powershell
 .\backup.ps1 -Enterprise -Pick      # Windows
 ./backup.sh --enterprise --pick     # macOS/Linux
 ```
 
-It always keeps your own conversations (DMs, group chats, private channels). Then — because a workspace can have **tens of thousands** of public channels — it's **search-driven** instead of one endless list:
+It always keeps your own conversations (DMs, group chats, private channels). Then, because a workspace can have **tens of thousands** of public channels, it's **search-driven** instead of one endless list:
 
 ```
-You belong to 5 channel(s) — all pre-selected. 31,402 more public channels are available.
+You belong to 5 channel(s), all pre-selected. 31,402 more public channels are available.
 
 ✓ Channels to back up (5): #team-private, #engineering, #releases, ...
 Search channels to add/remove (blank to review & finish): platform
@@ -136,13 +136,13 @@ Proceed?  ❯ Yes - back up this selection / No - keep choosing / Cancel
 Type part of a name, tick matches with **Space**, **Enter** to apply, repeat for more, then approve. It's built to be hard to lose track:
 
 - **Shows your running selection** before every search (`✓ Channels to back up (3): #engineering, …`).
-- **Pre-ticks the channels you belong to** (and anything you added before) — untick to remove them.
+- **Pre-ticks the channels you belong to** (and anything you added before), untick to remove them.
 - **Remembers your picks between runs**, so you curate your channel list once and reuse it.
 - The 30k-channel directory is fetched once and **cached**, so searching is instant after the first run.
 
 Cross-platform (Windows/macOS/Linux via `questionary`).
 
-> **Enterprise Grid note:** Slack/slackdump can't reliably report which *public* channels you belong to, so your sidebar's public channels are **not** auto-included — search for and add the ones you want here (the picker remembers them afterward).
+> **Enterprise Grid note:** Slack/slackdump can't reliably report which *public* channels you belong to, so your sidebar's public channels are **not** auto-included, search for and add the ones you want here (the picker remembers them afterward).
 
 ### Or edit a file
 
@@ -202,20 +202,20 @@ Three decoupled stages:
   capture)             (one copy)        export)      JSON           FTS5        search          localhost
 ```
 
-1. **Capture** — [`slackdump`](https://github.com/rusq/slackdump) saves your conversations into a **resumable SQLite archive** (`data/archive/`) using your own login. Interrupt it anytime — re-running **resumes** where it left off, and later runs are **incremental** (only new messages).
-2. **Convert + index** — the archive is converted to a *files-free* export (so attachments aren't stored twice), then a small Python step parses it, resolves @mentions/links, renders HTML, and builds a SQLite **FTS5** index. Attachments are read straight from the archive.
-3. **Serve** — a tiny local Flask app gives you the search + browse UI. No external requests are ever made.
+1. **Capture**: [`slackdump`](https://github.com/rusq/slackdump) saves your conversations into a **resumable SQLite archive** (`data/archive/`) using your own login. Interrupt it anytime, re-running **resumes** where it left off, and later runs are **incremental** (only new messages).
+2. **Convert + index**: the archive is converted to a *files-free* export (so attachments aren't stored twice), then a small Python step parses it, resolves @mentions/links, renders HTML, and builds a SQLite **FTS5** index. Attachments are read straight from the archive.
+3. **Serve**: a tiny local Flask app gives you the search + browse UI. No external requests are ever made.
 
 ---
 
 ## Updating later
 
-Just run `backup` again — it **resumes/append-updates** your existing archive (only fetching new messages, and skipping threads it already has in full, which keeps it fast and avoids most rate-limiting). Then re-index: `search.ps1 -Reindex` / `./search.sh --reindex`.
+Just run `backup` again, it **resumes/append-updates** your existing archive (only fetching new messages, and skipping threads it already has in full, which keeps it fast and avoids most rate-limiting). Then re-index: `search.ps1 -Reindex` / `./search.sh --reindex`.
 
-- **Stopped halfway?** Safe — re-run `backup` and it continues from where it stopped.
+- **Stopped halfway?** Safe, re-run `backup` and it continues from where it stopped.
 - **Want to change your channel selection?** Run `backup -Fresh` / `--fresh` to start a new archive.
-- **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only — drops the size dramatically. To see the size *before* downloading, use `-Estimate` / `--estimate` (see *"Not sure how big it'll be?"* above).
-- **Watching it run?** The console stays quiet on purpose: a progress line with a **rough ETA** prints every ~30s, and full slackdump logs go to `data/last-backup.log`. Requests are paced gently via `slackdump.gentle.toml` (this can't beat Slack's limits — it just reduces retry churn; `--no-pacing` uses slackdump defaults).
+- **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only, drops the size dramatically. To see the size *before* downloading, use `-Estimate` / `--estimate` (see *"Not sure how big it'll be?"* above).
+- **Watching it run?** The console stays quiet on purpose: a progress line with a **rough ETA** prints every ~30s, and full slackdump logs go to `data/last-backup.log`. Requests are paced gently via `slackdump.gentle.toml` (this can't beat Slack's limits, it just reduces retry churn; `--no-pacing` uses slackdump defaults).
 
 ---
 
@@ -232,15 +232,15 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 
 | Problem | Fix |
 |---|---|
-| **`auth error` / nothing exports** | You're not logged in. Run `backup` again — it launches the login. On Enterprise Grid, add `-Enterprise` / `--enterprise`. |
+| **`auth error` / nothing exports** | You're not logged in. Run `backup` again, it launches the login. On Enterprise Grid, add `-Enterprise` / `--enterprise`. |
 | **Login window won't complete (SSO/Okta)** | Re-run and choose **QR Code**, scan with the Slack mobile app. |
-| **Login browser closes instantly / `target navigated or closed` (Windows)** | slackdump drives Microsoft Edge for the login. **Fully quit Edge first** — close every window, then end any stray `msedge.exe` in Task Manager — and re-run. The error is a stale Edge automation target, not a problem with your login. |
+| **Login browser closes instantly / `target navigated or closed` (Windows)** | slackdump drives Microsoft Edge for the login. **Fully quit Edge first**: close every window, then end any stray `msedge.exe` in Task Manager, and re-run. The error is a stale Edge automation target, not a problem with your login. |
 | **"Sign in with Google" workspace** | Choose **QR Code** or **User Browser** at the login-method prompt. |
 | **Enterprise Grid** | Always pass `-Enterprise` (Windows) / `--enterprise` (macOS/Linux). |
 | **`sqlite3 was built without FTS5`** | Use a python.org build of Python (its bundled SQLite includes FTS5), then re-run setup. |
 | **Port 8731 in use** | `.\search.ps1 -Port 9000` or `./search.sh --port 9000`. |
-| **Huge workspace / slow / rate-limited** | Normal — Slack throttles thread fetches. The archive is **resumable**: stop and re-run `backup` to continue, and repeat runs are incremental. Use `-NoFiles` / `--no-files` to skip attachments. |
-| **ETA keeps climbing / stuck fetching threads** | Slack throttles thread *replies* to a crawl — full thread history can be impractically slow. Finish now with `-NoThreads` / `--no-threads` (skips remaining thread replies; keeps all messages + threads already saved), or grab just recent ones with `-SkipStale p30d` / `--skip-stale p30d`. |
+| **Huge workspace / slow / rate-limited** | Normal, Slack throttles thread fetches. The archive is **resumable**: stop and re-run `backup` to continue, and repeat runs are incremental. Use `-NoFiles` / `--no-files` to skip attachments. |
+| **ETA keeps climbing / stuck fetching threads** | Slack throttles thread *replies* to a crawl, full thread history can be impractically slow. Finish now with `-NoThreads` / `--no-threads` (skips remaining thread replies; keeps all messages + threads already saved), or grab just recent ones with `-SkipStale p30d` / `--skip-stale p30d`. |
 | **Windows blocks slackdump.exe** | Setup already unblocks it; if prompted, choose *More info → Run anyway*. |
 | **`running scripts is disabled on this system` (PowerShell)** | Allow local scripts once (per-user, no admin): `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. If IT policy blocks that, run scripts as `powershell -ExecutionPolicy Bypass -File .\setup.ps1`. Downloaded a ZIP instead of `git clone`? also run `Get-ChildItem *.ps1 \| Unblock-File`. |
 
@@ -270,4 +270,4 @@ slack-archive/
 ## Credits & license
 
 - Capture powered by [**slackdump**](https://github.com/rusq/slackdump) by Rustam Gilyazov (GPL-3.0; downloaded as a standalone binary, not bundled).
-- This project is released under the **MIT License** — see [LICENSE](LICENSE).
+- This project is released under the **MIT License**: see [LICENSE](LICENSE).

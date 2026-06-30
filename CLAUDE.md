@@ -1,4 +1,4 @@
-# CLAUDE.md — guide for Claude Code / AI assistants (and curious humans)
+# CLAUDE.md, guide for Claude Code / AI assistants (and curious humans)
 
 This repo is **slack-archive**: back up your own Slack history and search it locally
 in your browser, fully offline. `README.md` is the full human guide; this file is the
@@ -11,7 +11,7 @@ it into **SQLite FTS5** → a local **Flask** app serves search at `http://local
 Backups are **resumable + incremental**; attachments are stored once (in the archive).
 No data ever leaves the machine.
 
-## Helping a user — the 3 steps
+## Helping a user, the 3 steps
 Run everything **from the repo root**. Windows uses the `.ps1` scripts; macOS/Linux use `.sh`.
 
 1. **One-time setup** (downloads slackdump, creates a Python venv, installs deps):
@@ -29,7 +29,7 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
 ## The CLI under the scripts
 `python -m slackarchive <command>`:
 - `backup [--pick] [--enterprise] [--workspace NAME] [--channels …] [--no-files] [--estimate] [--fresh]
-  [--no-threads] [--skip-stale DURATION] [--no-pacing]` — capture via slackdump. Creates/updates
+  [--no-threads] [--skip-stale DURATION] [--no-pacing]`, capture via slackdump. Creates/updates
   `data/archive` (resume if it exists; `--fresh` rebuilds), then converts to `data/export`.
   **Time window:** default is the **last 6 months** (`-time-from`); `--months N` / `--since DATE` /
   `--all-time` override, and the interactive picker asks. This is the main lever for a backup that
@@ -38,15 +38,15 @@ Re-index after a later backup: `.\search.ps1 -Reindex` / `./search.sh --reindex`
   `--estimate` (alias `--get-size`) = dry run for disk size: forces metadata-only capture (no file
   downloads), then indexes into a throwaway db and reports message count + summed attachment `size`
   (deduped by file id) + current on-disk text size; leaves the archive resumable. See `_report_estimate`.
-- `pick-channels` — write an editable `channels.txt`; `find-channels <kw>` — search public channels by name
-- `index` — build `data/search.db` from `data/export`; resolves attachments from `data/archive`
-- `serve` — Flask UI on `127.0.0.1:8731`
+- `pick-channels`, write an editable `channels.txt`; `find-channels <kw>`, search public channels by name
+- `index`, build `data/search.db` from `data/export`; resolves attachments from `data/archive`
+- `serve`, Flask UI on `127.0.0.1:8731`
 
 ## Rules & gotchas (read before changing things)
 - **Never commit user data.** Anything under `data/` (real messages + attachments), `bin/`
   (the binary), `.venv/`, and `channels.txt` is git-ignored and must stay that way.
 - **Enterprise Grid:** pass `--enterprise` / `-Enterprise`. Slack does **not** reliably report
-  which *public* channels a user belongs to, so the picker can't auto-include them — the user
+  which *public* channels a user belongs to, so the picker can't auto-include them, the user
   searches by name and ticks them; picks are remembered in `data/.picked_public.json`.
 - **Default workspace** is resolved from `SLACK_ARCHIVE_WORKSPACE` env → `workspace.txt` →
   built-in fallback (`cybereason`), so the login won't prompt for it. Override with `--workspace`.

@@ -1,10 +1,10 @@
-# Slack History Archiver + Local Search — Project Plan
+# Slack History Archiver + Local Search: Project Plan
 
 > **Working title:** `slack-archive`
-> **Status:** **IMPLEMENTED 2026-06-29** — all milestones (§8) complete and validated on real sample data (search, threads, attachments, multi-export indexing, cross-platform scripts). Remaining: run the full real backup; optional polish. Decisions locked (Python+Flask, attachments included, MIT license). Step-0 feasibility passed — see §3a.
+> **Status:** **IMPLEMENTED 2026-06-29**: all milestones (§8) complete and validated on real sample data (search, threads, attachments, multi-export indexing, cross-platform scripts). Remaining: run the full real backup; optional polish. Decisions locked (Python+Flask, attachments included, MIT license). Step-0 feasibility passed, see §3a.
 > **Author context:** Personal backup of one's own accessible Slack history ahead of a company migration from Slack to Microsoft Teams. Intended to be open-sourced internally and shared with colleagues.
 >
-> **Note (post-implementation):** the capture step evolved beyond the original `export`-based design in §7.1. It now uses slackdump's **resumable `archive`/`resume`** with a **default 6-month time window**, an interactive `--pick` channel selector, and gentle API pacing. **See [README.md](README.md) for current, authoritative usage** — the commands in §7.1 below are historical.
+> **Note (post-implementation):** the capture step evolved beyond the original `export`-based design in §7.1. It now uses slackdump's **resumable `archive`/`resume`** with a **default 6-month time window**, an interactive `--pick` channel selector, and gentle API pacing. **See [README.md](README.md) for current, authoritative usage**: the commands in §7.1 below are historical.
 
 ---
 
@@ -12,23 +12,23 @@
 
 Let any colleague, on their own machine, **save their own accessible Slack history** (DMs, private channels, public channels, group DMs, and attachments) **fully offline**, and **search it through a local web UI** with fast full-text search.
 
-Success = a teammate clones the repo, runs one setup command and one "backup" command, logs into Slack in a browser window, waits, then opens a local web page and can type a phrase and instantly find the message — months later, with no Slack access.
+Success = a teammate clones the repo, runs one setup command and one "backup" command, logs into Slack in a browser window, waits, then opens a local web page and can type a phrase and instantly find the message, months later, with no Slack access.
 
 ### Non-goals
 - Not a server/multi-user product. Each person runs it locally for their own data.
-- Not exporting *other people's* private data — only what the logged-in user can already see.
+- Not exporting *other people's* private data, only what the logged-in user can already see.
 - Not a Teams importer. (Could be a future add-on; out of scope here.)
 
 ---
 
 ## 2. Hard requirements (from the user)
 
-1. **Save locally** — no third-party cloud; data never leaves the machine.
-2. **Web-based search** — searchable via a browser UI, good textual search.
+1. **Save locally**: no third-party cloud; data never leaves the machine.
+2. **Web-based search**: searchable via a browser UI, good textual search.
 3. **Runs on Windows** (primary dev/test machine) …
-4. **…but as platform-independent as possible** — Mac and Linux should "just work" too.
-5. **Dependencies are handled for the user** — setup scripts must detect and install (or fetch) everything needed. No "go install X yourself" gaps.
-6. **Shareable on GitHub** — clean repo, real README, turnkey instructions.
+4. **…but as platform-independent as possible**: Mac and Linux should "just work" too.
+5. **Dependencies are handled for the user**: setup scripts must detect and install (or fetch) everything needed. No "go install X yourself" gaps.
+6. **Shareable on GitHub**: clean repo, real README, turnkey instructions.
 
 ---
 
@@ -37,7 +37,7 @@ Success = a teammate clones the repo, runs one setup command and one "backup" co
 These go in the README prominently; they affect whether this works at all.
 
 - **Authorization / policy.** This captures company communications during a sanctioned migration. Users should confirm it's compatible with their org's data-retention/governance policy, and **keep the data local** (the `.gitignore` enforces never committing it).
-- **Admin visibility.** slackdump's own docs warn that automated access *may trigger Slack security alerts or notify workspace admins*, especially on **Enterprise Grid**. Not necessarily blocked — just not silent. Document this honestly.
+- **Admin visibility.** slackdump's own docs warn that automated access *may trigger Slack security alerts or notify workspace admins*, especially on **Enterprise Grid**. Not necessarily blocked, just not silent. Document this honestly.
 - **SSO / 2FA.** Browser auto-login ("EZ-Login") works for most workspaces; SSO/Okta/2FA setups sometimes need the manual token+cookie method. Document both.
 - **Workspace lockdown.** Some orgs disable token creation/exports entirely. We add a **Phase 0 feasibility check** so users find out in 2 minutes, not after a 2-hour export attempt.
 - **Time.** Slack rate-limits scraping. Big histories can take minutes to hours. The capture is **resumable** (SQLite archive mode) so interruptions aren't fatal.
@@ -50,7 +50,7 @@ Step-0 ran end-to-end against a real Slack Enterprise Grid workspace:
 
 - **Auth:** `workspace new` → **Interactive** login (system Edge browser) succeeded; creds cached locally.
 - **Enterprise Grid confirmed** (org id `E0…`) → the full export must pass `-enterprise`; admin-visibility caveat applies.
-- **Enumeration (`list channels -member-only`):** 101 conversations the user belongs to — **76 DMs, 21 group DMs, 4 private channels, 0 public channels**. (So this user's important content is private + DMs; public-channel scope is opt-in.)
+- **Enumeration (`list channels -member-only`):** 101 conversations the user belongs to, **76 DMs, 21 group DMs, 4 private channels, 0 public channels**. (So this user's important content is private + DMs; public-channel scope is opt-in.)
 - **Content extraction (`dump` of one private channel, last ~1 month):** pulled 68 top-level messages **with nested thread replies** and **29 attachments** (png/jpg/drawio) to local disk in ~39s.
 - **Confirmed dump JSON schema** (drives the ingester): top-level `{channel_id, name, messages[]}`; each message has `ts, type, subtype, user, text, thread_ts, files, attachments, blocks, edited, reply_count, reply_users, latest_reply` and slackdump's `slackdump_thread_replies[]` (nested replies). User/channel names resolve via the export's `users.json`/`channels.json`.
 
@@ -72,7 +72,7 @@ Three decoupled stages, so each can be re-run or swapped independently:
    -> data/export/      users/channels       snippets, thread links    thread view, file links
 ```
 
-- **Capture:** the mature `slackdump` binary (Go, single file, no runtime) handles auth, rate limits, pagination, all conversation types, and file downloads. We download the right prebuilt binary per OS/arch automatically — we do **not** reimplement Slack scraping.
+- **Capture:** the mature `slackdump` binary (Go, single file, no runtime) handles auth, rate limits, pagination, all conversation types, and file downloads. We download the right prebuilt binary per OS/arch automatically, we do **not** reimplement Slack scraping.
 - **Ingest:** a small Python step reads slackdump's **standard export** output (documented, stable Slack format) and normalizes it into our own clean SQLite schema. Decoupling from slackdump internals = resilient to their version changes.
 - **Search index:** **SQLite FTS5** virtual table → BM25 relevance ranking + highlighted snippets, no external search engine, no Java/Solr, scales to large histories far better than in-memory JSON filtering.
 - **Web UI:** a tiny **Flask** app serving server-rendered pages + a little vanilla JS. No npm/build toolchain, no CDN calls (offline-safe: all CSS/JS bundled locally).
@@ -82,7 +82,7 @@ Three decoupled stages, so each can be re-run or swapped independently:
 |---|---|---|
 | `slackdump` for capture | No admin/app needed, all convo types + files, resumable, cross-platform, actively maintained | Official Slack export (admin-only, public channels only); custom Slack API client (reinventing auth+rate-limit) |
 | Own the search layer (SQLite FTS5) | Genuinely good search (ranking, snippets, filters); single dependency; offline | `slack-export-viewer` (no index, in-memory filter only); `slack-history-viewer` (needs Solr/Java); SlackLogViewer (desktop-only, not web) |
-| Python + Flask | Ubiquitous, readable, contributor-friendly, single runtime dep, no build step | Node (build toolchain); Go (zero-runtime but we'd have to cross-compile & ship per-OS binaries — see open decision) |
+| Python + Flask | Ubiquitous, readable, contributor-friendly, single runtime dep, no build step | Node (build toolchain); Go (zero-runtime but we'd have to cross-compile & ship per-OS binaries, see open decision) |
 | Server-rendered + vanilla JS | Offline, no bundler, easy for colleagues to read/modify | React/Vite SPA (build step, heavier to share) |
 
 ---
@@ -124,11 +124,10 @@ Principle: **two thin OS-specific bootstrap scripts, one shared Python core.** P
 
 1. **Detect OS + architecture** (x64 / arm64).
 2. **Fetch slackdump**: download the matching prebuilt binary from a **pinned** GitHub release into `bin/`, verify checksum, mark executable. (No package manager required, but on Mac we can prefer `brew install slackdump` if Homebrew is present.)
-3. **Ensure Python 3.9+**: if missing, attempt auto-install —
-   - Windows: `winget install Python.Python.3.12` (fallback: direct python.org installer + clear message)
+3. **Ensure Python 3.9+**: if missing, attempt auto-install, - Windows: `winget install Python.Python.3.12` (fallback: direct python.org installer + clear message)
    - macOS: `brew install python` (fallback: python.org installer message)
    - Linux: `apt`/`dnf`/`pacman` detection (fallback: clear message)
-   - *Optional upgrade:* use [`uv`](https://docs.astral.sh/uv/) to provision Python+venv in one step — fast and self-contained. Considered for v1.1.
+   - *Optional upgrade:* use [`uv`](https://docs.astral.sh/uv/) to provision Python+venv in one step, fast and self-contained. Considered for v1.1.
 4. **Create `.venv` + `pip install -r requirements.txt`** (just Flask + small pins).
 
 After setup, **all real logic lives in the Python CLI**, called identically on every OS:
@@ -142,11 +141,11 @@ This keeps the only genuinely platform-specific code in ~30 lines per bootstrap 
 
 ## 7. Stage details
 
-### 7.1 Capture (slackdump) — v4.4.1 confirmed
+### 7.1 Capture (slackdump): v4.4.1 confirmed
 - **Login (interactive, user-run once):** `slackdump workspace new <subdomain>` → choose **Interactive** → browser login. Credentials are cached (encrypted by default) in the OS cache dir, e.g. `%LOCALAPPDATA%\slackdump`. After this, all other commands run non-interactively.
 - **Backup command (recommended):**
   `slackdump export -enterprise -member-only -type standard -o data/export`
-  - `-enterprise` is **required on Slack Enterprise Grid** (the test workspace is on Grid — confirmed).
+  - `-enterprise` is **required on Slack Enterprise Grid** (the test workspace is on Grid, confirmed).
   - default `-chan-types` is already `mpim,im,public_channel,private_channel`; `-files` defaults to true.
   - `-member-only` = only conversations you belong to (recommended personal scope). To also capture specific public channels you are *not* a member of, append their IDs/URLs.
   - `-type standard` co-locates attachments per channel and stays `slack-export-viewer`-compatible.
@@ -156,11 +155,11 @@ This keeps the only genuinely platform-specific code in ~30 lines per bootstrap 
 ### 7.2 Ingest (Python → SQLite)
 Parse the standard Slack export (`users.json`, `channels.json` + per-channel/day message JSON) into a normalized schema:
 
-- `channels(id, name, type, topic, purpose)` — type ∈ public/private/im/mpim
+- `channels(id, name, type, topic, purpose)`, type ∈ public/private/im/mpim
 - `users(id, name, real_name, display_name)`
 - `messages(ts, channel_id, user_id, epoch, thread_ts, subtype, text, raw_json, has_files)`
 - `files(id, message_ts, channel_id, name, mimetype, local_path, url)`
-- `messages_fts` — **FTS5** virtual table over `text` (+ channel name, author) with `content=messages`, BM25 ranking, `snippet()` for highlights.
+- `messages_fts`, **FTS5** virtual table over `text` (+ channel name, author) with `content=messages`, BM25 ranking, `snippet()` for highlights.
 
 Idempotent + incremental: re-running after a fresh export updates the DB without duplicating.
 
@@ -176,15 +175,15 @@ Idempotent + incremental: re-running after a fresh export updates the DB without
 
 ## 8. Implementation milestones
 
-1. **Scaffold** — repo tree, `.gitignore` (exclude data/bin/venv), LICENSE, README skeleton.
-2. **Bootstrap scripts** — `setup.ps1` / `setup.sh`: OS/arch detect, fetch slackdump, ensure Python, venv, deps. *(Test on Windows now; structure for Mac/Linux.)*
-3. **Capture wrapper** — `backup.*` + Phase-0 check; verify a real export lands in `data/export`.
-4. **Ingest + schema** — `db.py` + `ingest.py`; build SQLite + FTS5 from an export.
-5. **Search UI v1** — Flask: search box → ranked snippets with filters.
+1. **Scaffold**: repo tree, `.gitignore` (exclude data/bin/venv), LICENSE, README skeleton.
+2. **Bootstrap scripts**: `setup.ps1` / `setup.sh`: OS/arch detect, fetch slackdump, ensure Python, venv, deps. *(Test on Windows now; structure for Mac/Linux.)*
+3. **Capture wrapper**: `backup.*` + Phase-0 check; verify a real export lands in `data/export`.
+4. **Ingest + schema**: `db.py` + `ingest.py`; build SQLite + FTS5 from an export.
+5. **Search UI v1**: Flask: search box → ranked snippets with filters.
 6. **Conversation/thread view + Slack markup rendering + local file links.**
-7. **Polish** — pagination, errors, auto-open browser, friendly logs.
-8. **Cross-platform pass** — verify Windows end-to-end; document/dry-run Mac/Linux.
-9. **Docs** — README quickstart, screenshots, troubleshooting (SSO, enterprise alerts, locked workspaces), security/policy note.
+7. **Polish**: pagination, errors, auto-open browser, friendly logs.
+8. **Cross-platform pass**: verify Windows end-to-end; document/dry-run Mac/Linux.
+9. **Docs**: README quickstart, screenshots, troubleshooting (SSO, enterprise alerts, locked workspaces), security/policy note.
 10. **(Optional)** one-command launcher; encryption-at-rest note (OS disk encryption / password-protected archive); `uv` fast-path.
 
 ---
@@ -218,10 +217,10 @@ Idempotent + incremental: re-running after a fresh export updates the DB without
 ---
 
 ## 12. Open decisions (for you)
-1. **Runtime approach** — *Recommended:* Python+Flask (single, readable dependency; auto-installed). *Alternative:* ship zero-runtime Go binaries (no Python needed, but we must cross-compile and release per-OS binaries). 
-2. **Attachments** — include downloaded files/images (richer, but larger `data/`) vs. text-only (smaller, faster). *Recommended:* include, with a flag to skip.
+1. **Runtime approach**: *Recommended:* Python+Flask (single, readable dependency; auto-installed). *Alternative:* ship zero-runtime Go binaries (no Python needed, but we must cross-compile and release per-OS binaries). 
+2. **Attachments**: include downloaded files/images (richer, but larger `data/`) vs. text-only (smaller, faster). *Recommended:* include, with a flag to skip.
 3. **Project name** for the public repo (working title `slack-archive`).
-4. **License** — MIT assumed unless your company prefers otherwise.
+4. **License**: MIT assumed unless your company prefers otherwise.
 
 ---
 
