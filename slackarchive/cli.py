@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -289,6 +290,85 @@ def _interactive_select(sd: str, enterprise: bool) -> list[str] | None:
 
 
 # --------------------------------------------------------------------------- #
+# size estimation (--estimate)
+# --------------------------------------------------------------------------- #
+def _human_size(n: int) -> str:
+    """Bytes -> a short human string (e.g. '3.7 GB')."""
+    size = float(max(0, n))
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024.0 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} TB"
+
+
+def _dir_size(path: Path) -> int:
+    """Total size of all files under path (0 if it doesn't exist)."""
+    total = 0
+    if path.exists():
+        for p in path.rglob("*"):
+            if p.is_file():
+                try:
+                    total += p.stat().st_size
+                except OSError:
+                    pass
+    return total
+
+
+def _estimate_numbers(export_dir: Path, archive_dir: Path) -> dict:
+    """Index the captured (files-free) export into a throwaway db and read the
+    message/conversation/attachment tallies. Attachment bytes come from each file's
+    ``size`` metadata (deduped by file id), so they're known without downloading."""
+    from . import ingest, db as dbmod
+    tmp = Path(tempfile.mkdtemp(prefix="sa-estimate-"))
+    try:
+        tmp_db = tmp / "estimate.db"
+        ingest.index_paths([str(export_dir)], str(tmp_db),
+                           attachment_roots=[str(archive_dir)], verbose=False)
+        conn = dbmod.connect(tmp_db)
+        msgs = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        convs = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0]
+        nfiles, abytes = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(size), 0) FROM files").fetchone()
+        conn.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return {
+        "messages": int(msgs),
+        "conversations": int(convs),
+        "files": int(nfiles),
+        "attachment_bytes": int(abytes),
+        "text_bytes": _dir_size(archive_dir) + _dir_size(export_dir),
+    }
+
+
+def _report_estimate(export_dir: Path, archive_dir: Path) -> int:
+    """Print a disk-space estimate from a metadata-only capture and exit."""
+    if not export_dir.exists() or not any(export_dir.iterdir()):
+        print("\nNo messages were captured in this time window — nothing to size.")
+        return 0
+    print("\nMeasuring sizes from the captured metadata (no files were downloaded) ...")
+    n = _estimate_numbers(export_dir, archive_dir)
+    total_with = n["text_bytes"] + n["attachment_bytes"]
+    bar = "-" * 64
+    print("\n" + bar)
+    print("SIZE ESTIMATE  (metadata only — no attachments were downloaded)")
+    print(bar)
+    print(f"  Messages:                          {n['messages']:,} across {n['conversations']:,} conversation(s)")
+    print(f"  Text + metadata on disk now:       ~{_human_size(n['text_bytes'])}")
+    print(f"  Attachments (NOT downloaded yet):  {n['files']:,} files, ~{_human_size(n['attachment_bytes'])}")
+    print(bar)
+    print(f"  Estimated TOTAL if you include attachments:  ~{_human_size(total_with)}")
+    print(bar)
+    print("\nThe archive is resumable, so nothing here is wasted:")
+    print("  • Include the attachments: re-run the same backup WITHOUT --estimate")
+    print("    (it resumes and only downloads the files — it won't re-crawl history).")
+    print("  • Keep it text-only: build the search index now —")
+    print("      python -m slackarchive index    (then: python -m slackarchive serve)")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # commands
 # --------------------------------------------------------------------------- #
 def cmd_backup(args: argparse.Namespace) -> int:
@@ -335,6 +415,13 @@ def cmd_backup(args: argparse.Namespace) -> int:
         time_from = _ask_time_window()
     else:
         time_from = _time_from(6)
+
+    if args.estimate:
+        # --estimate is a metadata-only dry run: capture message/file metadata (file
+        # sizes included) but never download attachments, then report the size.
+        include_files = False
+        print("\nEstimate mode: capturing message metadata only — no attachments are downloaded.")
+        print("(This still crawls history, so it isn't instant; but it skips the large file downloads.)")
 
     files_flag = "-files" if include_files else "-files=false"
     logpath = DATA_DIR / "last-backup.log"
@@ -418,6 +505,9 @@ def cmd_backup(args: argparse.Namespace) -> int:
     if rc != 0:
         print(f"\nconvert failed (code {rc}).", file=sys.stderr)
         return rc
+
+    if args.estimate:
+        return _report_estimate(export_dir, archive_dir)
 
     # conversations with messages in the window (folders are only created for non-empty ones)
     with_msgs = 0
@@ -812,6 +902,9 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--since", metavar="YYYY-MM-DD", help="back up messages on/after this date (overrides --months)")
     pb.add_argument("--all-time", action="store_true", help="no date limit — back up ALL history (can be huge/slow)")
     pb.add_argument("--no-files", action="store_true", help="don't download file attachments (much smaller backup)")
+    pb.add_argument("--estimate", "--get-size", dest="estimate", action="store_true",
+                    help="dry run for disk size: capture message metadata only (no file downloads) "
+                         "and report estimated space, then stop. The archive stays resumable.")
     pb.add_argument("--fresh", action="store_true", help="start a new archive instead of resuming the existing one")
     pb.add_argument("--no-pacing", action="store_true", help="don't apply the gentle API-pacing config (use slackdump defaults)")
     pb.add_argument("--no-threads", action="store_true", help="on resume, skip fetching thread replies (fast finish; keeps threads already saved)")

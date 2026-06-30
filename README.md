@@ -80,6 +80,31 @@ This is the key to a backup that actually **finishes**. Slack throttles thread h
 
 A longer window means **much more time and disk** — start modest; you can always widen it later (re-run with a larger window).
 
+### Not sure how big it'll be? Estimate first 📏
+
+Attachments — not text — are what fill the disk, and Slack has no "how big is this channel" API, so the only way to know is to read the file sizes recorded inside your history. **`--estimate`** (alias `--get-size`) does exactly that: it captures **message metadata only — no files are downloaded** — then reports how much space the attachments *would* take.
+
+```powershell
+.\backup.ps1 -Enterprise -Pick -Estimate     # Windows
+```
+```bash
+./backup.sh --enterprise --pick --estimate   # macOS/Linux
+```
+
+It prints something like:
+
+```
+SIZE ESTIMATE  (metadata only — no attachments were downloaded)
+  Messages:                          12,431 across 87 conversation(s)
+  Text + metadata on disk now:       ~28.4 MB
+  Attachments (NOT downloaded yet):  1,902 files, ~3.7 GB
+  Estimated TOTAL if you include attachments:  ~3.7 GB
+```
+
+Because the archive is **resumable**, nothing is wasted: if the number looks fine, re-run the **same** backup *without* `--estimate` and it just downloads the files (it won't re-crawl history). If it's too big, stay text-only with `--no-files`.
+
+> `--estimate` still crawls your message history (the slow, rate-limited part), so it isn't instant — but it skips the large file downloads, so it's much faster than a full backup, and the result is accurate.
+
 ### Recommended: the interactive picker (`-Pick`)
 
 This is the easiest way to back up, and what the Quickstart uses. Add `-Pick` / `--pick` to `backup` and it walks you through everything in the terminal — which channels, whether to include attachments, and how far back — no files to edit:
@@ -189,7 +214,7 @@ Just run `backup` again — it **resumes/append-updates** your existing archive 
 
 - **Stopped halfway?** Safe — re-run `backup` and it continues from where it stopped.
 - **Want to change your channel selection?** Run `backup -Fresh` / `--fresh` to start a new archive.
-- **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only — drops the size dramatically.
+- **Disk filling up?** Re-run with `-NoFiles` / `--no-files` (or answer *no* to attachments in the picker) to keep text only — drops the size dramatically. To see the size *before* downloading, use `-Estimate` / `--estimate` (see *"Not sure how big it'll be?"* above).
 - **Watching it run?** The console stays quiet on purpose: a progress line with a **rough ETA** prints every ~30s, and full slackdump logs go to `data/last-backup.log`. Requests are paced gently via `slackdump.gentle.toml` (this can't beat Slack's limits — it just reduces retry churn; `--no-pacing` uses slackdump defaults).
 
 ---
