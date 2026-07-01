@@ -97,9 +97,12 @@ def create_app(db_path: str) -> Flask:
         base_pairs = [(k, v) for k, v in request.args.items(multi=True) if k != "page"]
         base_qs = urlencode(base_pairs)
 
+        # A search happens when there's a text query OR any filter is set (filter-only
+        # listing, e.g. "everything from this person").
+        filtering = bool(conv_ids or types or user_id or date_from is not None or date_to is not None)
         results: list[dict] = []
         total = 0
-        if q:
+        if q or filtering:
             results, total = dbmod.search(
                 conn, q,
                 conv_ids=conv_ids or None,
@@ -113,7 +116,7 @@ def create_app(db_path: str) -> Flask:
         pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
         return render_template(
             "search.html",
-            q=q, results=results, total=total, page=page, pages=pages,
+            q=q, results=results, total=total, page=page, pages=pages, filtering=filtering,
             page_size=PAGE_SIZE, conversations=conversations, authors=authors, stats=st,
             sel_types=types, sel_convs=conv_ids, sel_user=user_id,
             date_from=request.args.get("from", ""), date_to=request.args.get("to", ""),

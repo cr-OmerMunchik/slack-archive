@@ -47,7 +47,7 @@
   </aside>
 
   <section class="results">
-    {% if not q %}
+    {% if not q and not filtering %}
       <div class="landing">
         <h1>Search your Slack archive</h1>
         <p class="muted">Type in the box above to search every message you backed up, fully offline.</p>
@@ -73,7 +73,7 @@
       </div>
     {% else %}
       <p class="result-count">
-        {% if total %}{{ "{:,}".format(total) }} result{{ '' if total == 1 else 's' }} for <b>“{{ q }}”</b>{% else %}No results for <b>“{{ q }}”</b>{% endif %}
+        {% if total %}{{ "{:,}".format(total) }} result{{ '' if total == 1 else 's' }}{% if q %} for <b>“{{ q }}”</b>{% else %} matching your filters{% endif %}{% else %}No results{% if q %} for <b>“{{ q }}”</b>{% else %} matching your filters{% endif %}{% endif %}
       </p>
       {% for r in results %}
         <a class="result" href="{{ url_for('conversation', conv_id=r.conv_id) }}?ts={{ r.ts }}#ts-{{ r.ts }}">

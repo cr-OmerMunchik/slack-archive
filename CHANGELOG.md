@@ -5,6 +5,11 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH).
 
+## [1.1.1] - 2026-07-01
+
+### Fixed
+- The **"From person"** filter (and the conversation, type, and date filters) now work on their own, with an empty search box. Previously a filter only applied alongside a text query, so picking a person and clicking "Apply filters" showed the landing page instead of that person's messages. Filter-only results are listed newest first.
+
 ## [1.1.0] - 2026-06-30
 
 ### Added
@@ -30,5 +35,6 @@ First public release: back up your own Slack history and search it locally, full
 - A Slack-flavored web UI theme.
 - Cross-platform setup and run scripts (Windows PowerShell and macOS/Linux shell) with one-command setup.
 
+[1.1.1]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.1.1
 [1.1.0]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.1.0
 [1.0.0]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.0.0

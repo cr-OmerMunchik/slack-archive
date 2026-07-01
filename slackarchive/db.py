@@ -246,6 +246,73 @@ def stats(conn: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
+def _browse(
+    conn: sqlite3.Connection,
+    *,
+    conv_ids: Optional[Sequence[str]] = None,
+    types: Optional[Sequence[str]] = None,
+    user_id: Optional[str] = None,
+    date_from: Optional[float] = None,
+    date_to: Optional[float] = None,
+    limit: int = 30,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    """Filter-only listing (no text query): messages matching the filters, newest first.
+    Returns (rows, total) with the same row shape as ``search`` (a plain-text ``snippet``)."""
+    where: list[str] = []
+    params: dict[str, Any] = {}
+    if conv_ids:
+        ph = ",".join(f":c{i}" for i in range(len(conv_ids)))
+        where.append(f"m.conv_id IN ({ph})")
+        params.update({f"c{i}": v for i, v in enumerate(conv_ids)})
+    if types:
+        ph = ",".join(f":t{i}" for i in range(len(types)))
+        where.append(f"c.type IN ({ph})")
+        params.update({f"t{i}": v for i, v in enumerate(types)})
+    if user_id:
+        where.append("m.user_id = :uid")
+        params["uid"] = user_id
+    if date_from is not None:
+        where.append("m.epoch >= :df")
+        params["df"] = date_from
+    if date_to is not None:
+        where.append("m.epoch <= :dt")
+        params["dt"] = date_to
+    where_sql = " AND ".join(where) if where else "1"
+
+    total = conn.execute(
+        f"SELECT COUNT(*) AS n FROM messages m JOIN conversations c ON c.id = m.conv_id "
+        f"WHERE {where_sql}",
+        params,
+    ).fetchone()["n"]
+
+    params["limit"] = limit
+    params["offset"] = offset
+    rows = conn.execute(
+        f"""
+        SELECT
+            m.id, m.conv_id, m.ts, m.thread_ts, m.user_id, m.epoch,
+            m.has_files, m.reply_count, m.text_plain,
+            c.name AS conv_name, c.type AS conv_type, c.real_name AS conv_real,
+            u.display_name, u.real_name, u.name AS user_name
+        FROM messages m
+        JOIN conversations c ON c.id = m.conv_id
+        LEFT JOIN users u ON u.id = m.user_id
+        WHERE {where_sql}
+        ORDER BY m.epoch DESC
+        LIMIT :limit OFFSET :offset
+        """,
+        params,
+    ).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        text = (d.pop("text_plain", None) or "").strip()
+        d["snippet"] = html.escape(text[:200]) + ("…" if len(text) > 200 else "")
+        out.append(d)
+    return out, total
+
+
 def search(
     conn: sqlite3.Connection,
     query: str,
@@ -261,6 +328,11 @@ def search(
     """Full-text search. Returns (rows, total_count)."""
     match = to_match_query(query)
     if not match:
+        # No text query: if any filter is set, browse matching messages (newest first);
+        # otherwise there's nothing to show (the landing page is rendered instead).
+        if conv_ids or types or user_id or date_from is not None or date_to is not None:
+            return _browse(conn, conv_ids=conv_ids, types=types, user_id=user_id,
+                           date_from=date_from, date_to=date_to, limit=limit, offset=offset)
         return [], 0
 
     where = ["messages_fts MATCH :match"]

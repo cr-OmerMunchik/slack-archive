@@ -75,3 +75,33 @@ def test_search_type_filter(conn):
     db.rebuild_fts(conn)
     assert db.search(conn, "alpha", types=["public_channel"])[1] == 1
     assert db.search(conn, "alpha", types=["im"])[1] == 0
+
+
+def test_filter_only_by_user_no_query(conn):
+    # The reported bug: "From person" with an empty search box should list that person's messages.
+    conn.execute("INSERT INTO users(id,name) VALUES('U1','alice')")
+    conn.execute("INSERT INTO users(id,name) VALUES('U2','bob')")
+    conn.execute("INSERT INTO messages(conv_id,ts,user_id,type,epoch,text_plain) "
+                 "VALUES('C1','1.0','U1','message',1.0,'hello from alice')")
+    conn.execute("INSERT INTO messages(conv_id,ts,user_id,type,epoch,text_plain) "
+                 "VALUES('C1','2.0','U2','message',2.0,'hello from bob')")
+    conn.commit()
+    rows, total = db.search(conn, "", user_id="U1")     # empty query, filter only
+    assert total == 1
+    assert rows[0]["user_id"] == "U1"
+    assert "hello from alice" in rows[0]["snippet"]
+
+
+def test_filter_only_newest_first(conn):
+    conn.execute("INSERT INTO messages(conv_id,ts,type,epoch,text_plain) "
+                 "VALUES('C1','1.0','message',1.0,'older')")
+    conn.execute("INSERT INTO messages(conv_id,ts,type,epoch,text_plain) "
+                 "VALUES('C1','2.0','message',2.0,'newer')")
+    conn.commit()
+    rows, total = db.search(conn, "", conv_ids=["C1"])
+    assert total == 2
+    assert "newer" in rows[0]["snippet"]      # most recent first
+
+
+def test_empty_query_no_filters_still_empty(conn):
+    assert db.search(conn, "") == ([], 0)
