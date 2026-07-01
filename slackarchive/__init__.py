@@ -11,4 +11,4 @@ The package has three small, decoupled pieces:
 Everything is driven from ``cli`` (``python -m slackarchive ...``).
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"

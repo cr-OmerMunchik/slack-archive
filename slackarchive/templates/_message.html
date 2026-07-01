@@ -35,7 +35,7 @@
         {% if m.edited %}<span class="muted">(edited)</span>{% endif %}
         {% if m.subtype and m.subtype not in ('bot_message', 'thread_broadcast') %}<span class="subtype muted">{{ m.subtype }}</span>{% endif %}
       </div>
-      <div class="msg-text">{{ m.html|safe }}</div>
+      <div class="msg-text" dir="auto">{{ m.html|safe }}</div>
       {{ files_block(m) }}
       {% if show_thread_button and m.reply_count and (not m.thread_ts or m.thread_ts == m.ts) %}
         <button class="thread-btn" data-conv="{{ conv.id }}" data-thread="{{ m.ts }}">

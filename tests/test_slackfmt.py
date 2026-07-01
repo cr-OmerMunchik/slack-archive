@@ -79,3 +79,21 @@ def test_display_name_preference_order():
     assert display_name({"name": "omer"}) == "omer"
     assert display_name({}) == "unknown"
     assert display_name(None) == "unknown"
+
+
+def test_emoji_shortcode_rendered():
+    html, plain = render("nice :smile: work :+1:")
+    assert "😄" in html and "😄" in plain
+    assert "👍" in html
+    assert ":smile:" not in html
+
+
+def test_unknown_shortcode_left_untouched():
+    html, _ = render("deploy :some_custom_workspace_emoji: now")
+    assert ":some_custom_workspace_emoji:" in html
+
+
+def test_shortcode_inside_code_is_not_converted():
+    # inside a code span the literal text is preserved (it's stashed before emojize)
+    html, _ = render("regex `:smile:` literal")
+    assert "<code>:smile:</code>" in html

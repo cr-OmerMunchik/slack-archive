@@ -5,6 +5,16 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH).
 
+## [1.2.0] - 2026-07-01
+
+### Added
+- Emoji rendering: message shortcodes like `:smile:` now show as real emoji (😄). Uses a bundled shortcode map (5,316 codes), so it stays fully offline with no new dependency. Custom workspace emoji that were never downloaded are left as their `:shortcode:` text.
+
+### Fixed
+- Right-to-left text: Hebrew (and other RTL) messages now display in the correct direction, matching the Slack app, instead of being forced left-to-right. Direction is detected per message, so mixed English and Hebrew each render correctly.
+
+> To see these on an existing backup, re-index once: `.\search.ps1 -Reindex` (Windows) or `./search.sh --reindex`. Emoji are baked in at index time; the right-to-left fix applies as soon as you restart the search UI.
+
 ## [1.1.1] - 2026-07-01
 
 ### Fixed
@@ -35,6 +45,7 @@ First public release: back up your own Slack history and search it locally, full
 - A Slack-flavored web UI theme.
 - Cross-platform setup and run scripts (Windows PowerShell and macOS/Linux shell) with one-command setup.
 
+[1.2.0]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.2.0
 [1.1.1]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.1.1
 [1.1.0]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.1.0
 [1.0.0]: https://github.com/cr-OmerMunchik/slack-archive/releases/tag/v1.0.0

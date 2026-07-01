@@ -16,7 +16,9 @@ so a search for a colleague's display name or a link's label will match.
 from __future__ import annotations
 
 import html
+import json
 import re
+from pathlib import Path
 from typing import Callable, Mapping
 
 # A private-use sentinel that won't appear in real text, used for placeholders.
@@ -32,6 +34,34 @@ _ITALIC_RE = re.compile(r"(?<![\w/])_([^_\n]+)_(?![\w/])")
 _STRIKE_RE = re.compile(r"~([^~\n]+)~")
 
 NameLookup = Mapping[str, str]
+
+# Slack emoji shortcodes (:smile:) -> Unicode, via a bundled map (no runtime dependency).
+_SHORTCODE_RE = re.compile(r":([A-Za-z0-9_+\-]+):")
+_EMOJI_MAP: dict | None = None
+
+
+def _emoji_map() -> dict:
+    global _EMOJI_MAP
+    if _EMOJI_MAP is None:
+        try:
+            _EMOJI_MAP = json.loads(
+                Path(__file__).with_name("emoji_shortcodes.json").read_text(encoding="utf-8")
+            )
+        except Exception:
+            _EMOJI_MAP = {}
+    return _EMOJI_MAP
+
+
+def _emojize(text: str) -> str:
+    """Replace :shortcodes: with Unicode emoji; unknown codes are left as-is."""
+    if ":" not in text:
+        return text
+    m = _emoji_map()
+    if not m:
+        return text
+    return _SHORTCODE_RE.sub(
+        lambda mt: m.get(mt.group(1)) or m.get(mt.group(1).lower()) or mt.group(0), text
+    )
 
 
 def _slack_unescape(s: str) -> str:
@@ -117,6 +147,7 @@ def render(
 
     # 3) leftover text: unescape Slack entities so we have real unicode.
     text = _slack_unescape(text)
+    text = _emojize(text)   # :smile: -> 😄  (bundled shortcode map; no runtime dependency)
 
     plain = _restore(text, plain_parts, plain=True)
     html_out = _to_html(text, html_parts)
